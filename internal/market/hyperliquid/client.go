@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/shaojie-li/stocks-marketing/internal/domain"
 	"github.com/shaojie-li/stocks-marketing/internal/market"
 )
 
@@ -19,10 +20,64 @@ type Client struct {
 	httpClient *http.Client
 	infoURL    string
 	timeout    time.Duration
+	now        func() time.Time
 }
 
 func NewClient(httpClient *http.Client, infoURL string, timeout time.Duration) *Client {
-	return &Client{httpClient: httpClient, infoURL: infoURL, timeout: timeout}
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	return &Client{httpClient: httpClient, infoURL: infoURL, timeout: timeout, now: time.Now}
+}
+
+func (c *Client) Contract24HObservations(ctx context.Context, symbols []string) ([]domain.Observation, error) {
+	if len(symbols) == 0 {
+		return nil, errors.New("no symbols configured for CONTRACT_24H")
+	}
+	var contextRaw json.RawMessage
+	if err := c.post(ctx, map[string]any{"type": "metaAndAssetCtxs", "dex": dexFor(symbols)}, &contextRaw); err != nil {
+		return nil, fmt.Errorf("load current asset contexts: %w", err)
+	}
+	capturedAt := c.now().UTC()
+	contexts, err := ParseMetaAndAssetContexts(contextRaw)
+	if err != nil {
+		return nil, err
+	}
+	bySymbol := make(map[string]AssetContext, len(contexts))
+	for _, asset := range contexts {
+		bySymbol[asset.Symbol] = asset
+	}
+	for _, symbol := range symbols {
+		asset, ok := bySymbol[symbol]
+		if !ok || asset.Delisted || !positiveDecimal(asset.MarkPrice) || !positiveDecimal(asset.OraclePrice) || !positiveDecimal(asset.OpenInterest) {
+			return nil, fmt.Errorf("SKIPPED_SOURCE_INCOMPLETE: current mark unavailable for %s", symbol)
+		}
+	}
+	bounds := Contract24HBounds(capturedAt)
+	observations := make([]domain.Observation, 0, len(symbols))
+	for _, symbol := range symbols {
+		var raw json.RawMessage
+		payload := map[string]any{
+			"type": "candleSnapshot",
+			"req": map[string]any{
+				"coin": symbol, "interval": "1m",
+				"startTime": bounds.RequestStart.UnixMilli(), "endTime": bounds.RequestEnd.UnixMilli(),
+			},
+		}
+		if err := c.post(ctx, payload, &raw); err != nil {
+			return nil, fmt.Errorf("load CONTRACT_24H candles for %s: %w", symbol, err)
+		}
+		candles, err := ParseCandles(raw, symbol, "1m")
+		if err != nil {
+			return nil, fmt.Errorf("load CONTRACT_24H candles for %s: %w", symbol, err)
+		}
+		observation, err := BuildContract24HObservation(candles, bounds, bySymbol[symbol].MarkPrice)
+		if err != nil {
+			return nil, fmt.Errorf("build CONTRACT_24H observation for %s: %w", symbol, err)
+		}
+		observations = append(observations, observation)
+	}
+	return observations, nil
 }
 
 func (c *Client) Snapshot(ctx context.Context, symbols []string, generation uint64, receivedAt time.Time) ([]market.Snapshot, error) {

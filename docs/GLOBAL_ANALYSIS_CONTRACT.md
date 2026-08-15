@@ -52,6 +52,8 @@
 
 `REGULAR_SESSION` 使用 close-to-close 语义而不是 open-to-close，从而保留跳空对持仓和消息接受度的影响。
 
+`CONTRACT_24H` 使用同批当前 mark 作为共同终点。起点使用理论起点之前最近一根已完成 1 分钟 candle 的 close，偏差必须小于 60 秒；报告必须同时保存理论起点、实际起点和基准价格。任一标的缺失共同锚点时整批不可用，禁止插值、前向填充、使用 `prevDayPx`、使用过时的末根 candle 或补接第二数据源。
+
 ### 2.4 稳定分析身份
 
 同一分析的幂等键由以下字段组成：
@@ -84,6 +86,11 @@ source
 source_tier
 freshness
 adjustment
+theoretical_start
+window_start
+window_end
+baseline_price
+baseline_at
 ```
 
 其中：

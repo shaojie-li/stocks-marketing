@@ -9,6 +9,10 @@ Hyperliquid REST 初始快照 + WebSocket 实时更新
 → Eligibility Gate（完整性、时间戳、双边盘口、OI、断线恢复）
 → 并发安全的内存行情快照
 
+Hyperliquid 同批当前 mark + 24h 起点 candle
+→ 8 个同窗口收益 Observation
+→ 5 个 Relative Strength + Cross-Market
+
 固定分析 fixture
 → 同窗口核心指标
 → 符合 global-analysis/1.1.0 的结构化报告
@@ -68,6 +72,14 @@ go run ./cmd/market-check
 ```
 
 命令输出每个标的的 `price/change_pct/timestamp/market_status/source`、必要盘口投影和 Eligibility 结果，不输出配置值或完整订单簿。
+
+验证真实 24 小时合约窗口和六个核心指标（只读）：
+
+```bash
+go run ./cmd/indicator-check
+```
+
+命令使用同一批当前 mark 和完全相同的分钟起点锚点计算收益，只输出 8 个 Observation 与派生指标，不输出原始 candle 数组。
 
 进程收到 `SIGINT` 或 `SIGTERM` 后停止接收任务，并在 15 秒边界内关闭 River 和数据库连接。
 
