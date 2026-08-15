@@ -25,9 +25,11 @@ T-001 全局分析规则与输出契约 ─┐
 T-002 核心数据源真实能力验证 ─┘
                                       ↓
 T-004 Hyperliquid 实时行情快路径与数据质量门（DONE）
+                                      ↓
+T-005 同窗口收益与六个核心指标（DONE）
 ```
 
-T-001 至 T-004 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路，以及带 Eligibility Gate 的真实行情快路径。下一任务应在这份统一快照之上实现首个确定性指标窗口，不重复接行情源。
+T-001 至 T-005 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径，以及可审计的同窗口收益和六个核心指标。下一任务应在这些确定性特征之上实现 Trend Score 状态机，不把状态迁移交给 LLM。
 
 ## 4. 稳定任务索引
 
@@ -37,6 +39,7 @@ T-001 至 T-004 已完成，形成规则契约、Hyperliquid 数据边界、可�
 | M0 | T-002 | 验证核心数据源的真实覆盖、时效与授权边界 | [#2](https://github.com/shaojie-li/stocks-marketing/issues/2) | `DONE` |
 | M1 | T-003 | 建立项目骨架与最小可验证垂直链路 | [#3](https://github.com/shaojie-li/stocks-marketing/issues/3) | `DONE` |
 | M2 | T-004 | 接入 Hyperliquid 实时行情快路径与数据质量门 | [#8](https://github.com/shaojie-li/stocks-marketing/issues/8) | `DONE` |
+| M2 | T-005 | 计算同窗口收益与六个核心指标 | [#10](https://github.com/shaojie-li/stocks-marketing/issues/10) | `DONE` |
 
 ## 5. 暂不进入关键路径
 

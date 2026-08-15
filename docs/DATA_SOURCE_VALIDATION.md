@@ -131,6 +131,10 @@ WebSocket 对 `xyz:SKHY` 的 `l2Book` 和 `activeAssetCtx` 订阅成功返回：
 
 结论：Hyperliquid 连续 candle 能提供阶段窗口的原始价格，但开盘、收盘、隔夜和周末是报告调度语义，不是底层现货 session。每个 phase 必须显式保存 `window_start`、`window_end`、`as_of` 和 candle 完成状态。
 
+T-005 在 2026-08-15 的真实复核发现，`xyz:SMH` 最新 1 分钟 candle 曾落后当前 mark 约 100 分钟。因此 candle 尾值不能冒充当前价格，也不能要求 24 小时内每一分钟都连续后再计算收益。冻结实现为：同一次 `metaAndAssetCtxs` 响应中的当前 mark 作为共同终点；理论起点之前最近一根已完成 1 分钟 candle 的 close 作为共同起点，锚点偏差必须小于 60 秒。8 个标的必须具有完全相同的实际起点；任一锚点或当前 mark 缺失即整批返回 `SKIPPED_SOURCE_INCOMPLETE`。
+
+系统同时保存 `theoretical_start`、`window_start`、`window_end`、`baseline_price` 与 `baseline_at`，禁止插值、前向填充、使用 `prevDayPx`、使用过时末根 candle 或补接第二数据源。该窗口描述 Hyperliquid 连续合约，不代表美股或韩股正式现货交易时段。
+
 ## 9. 失败与恢复边界
 
 冻结策略见 [`failure-policy-v1.json`](../testdata/data-sources/hyperliquid/failure-policy-v1.json)：
@@ -169,6 +173,7 @@ T-004 增加 Go 运行时验证：REST 的 metadata/context 只按同一响应�
 
 ```bash
 go run ./cmd/market-check
+go run ./cmd/indicator-check
 ```
 
 探针实时复核版本化映射、退市、OI、mark/oracle、双边盘口和 OI cap。429、超时、断线与 stale 的降级策略由确定性 fixture 校验；不以破坏公共服务或等待真实故障作为验收手段。
