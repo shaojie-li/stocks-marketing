@@ -12,10 +12,10 @@
 
 ### 决策
 
-- 使用 [`GLOBAL_ANALYSIS_CONTRACT.md`](GLOBAL_ANALYSIS_CONTRACT.md) 作为 `global-analysis/1.0.0` 的规则事实源。
+- 使用 [`GLOBAL_ANALYSIS_CONTRACT.md`](GLOBAL_ANALYSIS_CONTRACT.md) 作为版本化规则事实源；初始版本为 `global-analysis/1.0.0`。
 - 时间窗口、六个指标、状态、三个 Score、Memory 状态迁移、数据质量和 Confidence 全部由确定性领域逻辑计算。
 - AI 只接收已经冻结的 Evidence Bundle，输出必须符合 JSON Schema，并引用已有证据。
-- QQQ 在 v1 中作为 Nasdaq 的可交易代理，字段和报告不得称其为 Nasdaq 指数本身。
+- 代理资产必须显示实际 symbol 和代理关系，字段和报告不得把代理称为原指数本身。
 - SKHY Sector Alpha 与 SKHY Market Alpha 分开保存，不设置含义不明的合成 SKHY Alpha。
 - 缺失和冲突降低覆盖率与 Confidence，不按零分或多空信号处理。
 - 当前产品只提供 Discord 决策辅助，自动交易属于独立产品和安全范围。
@@ -37,13 +37,13 @@
 
 系统最终在 Hyperliquid 的币股合约上观察并可能执行交易。若行情同时来自多个供应商，需要处理 symbol 映射、交易时段、价格口径、授权和故障切换，会显著增加早期产品的错误面。
 
-2026-08-15 的公共 live check 发现有非零 OI 的 NVDA、AMD、MU、SMH 和 SKHY 等部分合约，但 SOXX、QQQ、Samsung、KOSPI 等关键基准不存在。项目接受覆盖不完整换取单一口径，缺失时不采用替代行情源。
+2026-08-15 的首次公共 live check 只按字面 symbol 查找，错误地把 trade.xyz 别名判为缺失。复核确认 `KR200`、`SOXL`、`XYZ100` 和 `SMSN` 均存在且有非零 OI。该错误表明业务语义不能通过字符串相等解析，必须维护版本化映射。
 
 ### 决策
 
 - Hyperliquid 是唯一市场数据源。合约发现、mark、oracle、L2、funding、OI、成交量、Crowding 和未来执行前检查均来自 Hyperliquid。
-- 不接入 KIS、Massive、BLS 或其他来源补齐行情、指数、资金流或宏观数值；新闻文章中的价格也不得使用。
-- 每个分析阶段先执行确定性 Eligibility Gate。只有该阶段全部必需 symbol、字段、窗口和 freshness 均可用时，才创建 Analysis Run、调用 AI 和发送 Discord。
+- 不接入 KIS、Massive 或其他来源补齐市场行情；新闻文章中的价格也不得使用。非市场事实源另行决策，不能提供或覆盖价格字段。
+- 每个分析阶段先用版本化映射解析业务资产，再执行确定性 Eligibility Gate。只有该阶段全部必需价格 symbol、字段、窗口和 freshness 均可用时，才创建 Analysis Run、调用 AI 和发送 Discord。
 - Gate 失败时记录结构化 `SKIPPED_SOURCE_INCOMPLETE` 运维事件，包含缺失项和检查时间；不生成残缺交易报告，不把缺失按零分或中性信号处理。
 - 周末 Hyperliquid 合约状态可以是 `CONTINUOUS`，不得描述成底层美韩现货市场 OPEN。
 - Hyperliquid 合约通过 `dex + asset` 动态发现。名称命中后仍须检查非零 OI、双边盘口、oracle freshness 和 50 bps 深度；不得永久硬编码某个 DEX 或把零 OI 同名合约视为可交易。
@@ -52,6 +52,7 @@
 ### 影响
 
 - T-002 不再验证 KIS、Massive 或宏观数据商，改为冻结 Hyperliquid 覆盖矩阵、失败行为和 Eligibility Gate 输入。
-- 当前 SOXX、QQQ、Samsung、KOSPI 等缺失，因此依赖这些标的的原版全局分析会被 Gate 跳过，不发送交易报告。
+- `global-analysis/1.1.0` 使用 `SMH`、`XYZ100`、`SMSN` 和 `KR200` 分别承载 Semiconductor、Growth、Samsung 和 Korea 200 语义，并在报告中公开代理关系。
+- `SOXL` 是每日重置的 3 倍杠杆 ETF，不能直接代替 SOXX；当前选择非杠杆 `SMH`，避免系统性放大 Relative Strength。
 - 新合约上线后通过动态发现自动进入候选，但仍须完整通过字段、时间和流动性检查。
 - 公司公告和产业新闻不属于市场行情；是否接入官方事实源由后续独立决策处理，不能提供或覆盖任何价格字段。

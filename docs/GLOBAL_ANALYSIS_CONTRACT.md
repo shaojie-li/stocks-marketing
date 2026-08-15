@@ -1,7 +1,7 @@
 # 全局交易分析契约
 
-状态：Frozen v1.0.0
-规则版本：`global-analysis/1.0.0`
+状态：Frozen v1.1.0
+规则版本：`global-analysis/1.1.0`
 更新日期：2026-08-15
 
 ## 1. 目标与边界
@@ -10,7 +10,7 @@
 
 当前系统提供可追溯的 Discord 决策辅助，不连接钱包、券商私有交易接口或自动下单。模型只解释已经计算的事实、证据和状态，不负责计算权威数值、补齐缺失数据或改变确定性结论。
 
-为消除原始规则中的歧义，v1 做出以下决定：
+为消除原始规则中的歧义，v1.1 做出以下决定：
 
 - 最终报告必须同时输出 Fundamental、Trend、Entry 三个 Score。
 - `SKHY Alpha` 拆为 `SKHY Sector Alpha` 和 `SKHY Market Alpha`，不再使用含义不明的合成字段。
@@ -64,9 +64,9 @@ rule_version + phase + primary_asset + window_type + window_start + window_end +
 
 ### 2.5 市场数据 Eligibility Gate
 
-根据 [D-002](DECISIONS.md#d-002-hyperliquid-是唯一市场数据源缺失时停止处理)，Hyperliquid 是唯一市场数据源。每个 phase 在创建 Analysis Run 之前必须确认该阶段全部必需 symbol、字段、窗口和 freshness 均可用。
+根据 [D-002](DECISIONS.md#d-002-hyperliquid-是唯一市场数据源缺失时停止处理)，Hyperliquid 是唯一市场数据源。每个 phase 在创建 Analysis Run 之前必须确认该阶段全部必需价格 symbol、字段、窗口和 freshness 均可用。
 
-Gate 未通过时记录 `SKIPPED_SOURCE_INCOMPLETE` 运维事件，明确缺失项和检查时间，不创建报告、不调用模型、不发送 Discord 交易分析。本文后续的 `UNAVAILABLE` 规则适用于已经通过 Gate 后，非阶段必需证据在处理期间失效的报告；不能用它绕过启动 Gate 生成长期残缺报告。
+Gate 未通过时记录 `SKIPPED_SOURCE_INCOMPLETE` 运维事件，明确缺失项和检查时间，不创建报告、不调用模型、不发送 Discord 交易分析。Foreign Flow 等 Hyperliquid 不提供的非价格信号不属于价格 Gate：对应模块不处理、字段标记 `UNAVAILABLE` 并降低覆盖率与 Confidence，禁止由价格反推。
 
 ## 3. 行情 Observation 契约
 
@@ -106,13 +106,26 @@ Fed 相关 Evidence 还必须使用 `interpretation_type` 区分 `OFFICIAL_POLIC
 
 设 `R(symbol, window)` 为同一分析窗口内的收益率，单位为百分比。
 
+v1.1 使用版本化业务映射解析 trade.xyz 合约，不能把业务名称直接当作 API symbol：
+
+| 分析语义 | Hyperliquid symbol | 关系 |
+|---|---|---|
+| Micron | `xyz:MU` | 直接跟踪 MU |
+| Semiconductor benchmark | `xyz:SMH` | 使用非杠杆 SMH 代理原 SOXX 语义 |
+| Growth benchmark | `xyz:XYZ100` | 使用 XYZ100 代理原 Nasdaq/QQQ 语义 |
+| SK Hynix | `xyz:SKHY` | 直接跟踪 SKHY ADS |
+| Samsung | `xyz:SMSN` | 跟踪 005930.KS 并换算为 USD |
+| Korea market benchmark | `xyz:KR200` | 使用 Korea 200 代理原 KOSPI/KOSPI200 语义 |
+
+`SOXL` 是每日 3 倍杠杆 ETF且每日重置，禁止在不做独立模型和规则版本的情况下替代 Semiconductor benchmark。报告必须显示实际 Hyperliquid symbol 和代理说明，不得把 SMH、XYZ100 或 KR200 标成 SOXX、QQQ 或 KOSPI 的原始行情。
+
 | 指标 | 公式 | 必需输入 |
 |---|---|---|
-| Memory Relative Strength | `R(MU) - R(SOXX)` | MU、SOXX |
-| Semiconductor Relative Strength | `R(SOXX) - R(QQQ)` | SOXX、QQQ；QQQ 是 Nasdaq 交易代理，不冒充 Nasdaq 指数值 |
-| AI Compute Rotation | `R(AMD) - R(NVDA)` | AMD、NVDA |
-| SKHY Sector Alpha | `R(000660.KS) - R(005930.KS)` | SK Hynix、Samsung |
-| SKHY Market Alpha | `R(000660.KS) - R(KOSPI)` | SK Hynix、KOSPI |
+| Memory Relative Strength | `R(xyz:MU) - R(xyz:SMH)` | `xyz:MU`、`xyz:SMH` |
+| Semiconductor Relative Strength | `R(xyz:SMH) - R(xyz:XYZ100)` | `xyz:SMH`、`xyz:XYZ100` |
+| AI Compute Rotation | `R(xyz:AMD) - R(xyz:NVDA)` | `xyz:AMD`、`xyz:NVDA` |
+| SKHY Sector Alpha | `R(xyz:SKHY) - R(xyz:SMSN)` | `xyz:SKHY`、`xyz:SMSN` |
+| SKHY Market Alpha | `R(xyz:SKHY) - R(xyz:KR200)` | `xyz:SKHY`、`xyz:KR200` |
 | Cross-Market Confirmation | 比较 Memory RS 与 SKHY Sector Alpha 的方向和强度 | 两个已计算指标及各自 session date |
 
 禁止从新闻或第三方评论读取已经计算好的 Relative Strength。任一输入不可用、过期、窗口不一致或存在未解决的关键冲突时，指标 `availability` 不是 `AVAILABLE`，`value_pp` 和 `state` 必须为 `null`。
@@ -300,9 +313,9 @@ WEAK → IMPROVING → CONFIRMED → STRONG → PERSISTENT_STRONG
 
 固定维护以下六层：
 
-1. MU 跑赢 SOXX；
-2. SKHY 跑赢 Samsung；
-3. SKHY 跑赢 KOSPI；
+1. `xyz:MU` 跑赢 `xyz:SMH`；
+2. `xyz:SKHY` 跑赢 `xyz:SMSN`；
+3. `xyz:SKHY` 跑赢 `xyz:KR200`；
 4. 外资净买 SKHY；
 5. 价格接受当前 Catalyst；
 6. Trend Score 相对可比前次报告提高。
@@ -357,6 +370,8 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 ## 13. 版本变更
 
 阈值、Score 权重、状态迁移、窗口语义或 Schema 必填字段发生变化时必须提升 `rule_version`，保存旧版本，并使用相同测试向量做差异回放。Prompt 文案变化只提升 `prompt_version`，不得静默改变本契约。
+
+- `global-analysis/1.1.0`：在 Hyperliquid 单一市场数据源约束下，引入版本化 trade.xyz 映射；核心指标基准改为 `SMH`、`XYZ100`、`SMSN` 和 `KR200`，并明确拒绝无变换的 `SOXL` 替代。
 
 ## 14. 验证资产
 

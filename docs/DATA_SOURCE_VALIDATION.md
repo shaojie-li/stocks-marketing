@@ -30,6 +30,8 @@
 
 该 Gate 位于全局分析契约之前，所以不会生成违反 Schema 的残缺报告。缺失不按零分、中性或多空信号处理。
 
+业务名称不能直接与 API symbol 做字符串相等比较。固定映射见 [`asset-map-v1.json`](../testdata/data-sources/hyperliquid/asset-map-v1.json)，每次启动仍需用实时 metadata 验证映射目标存在且可用。
+
 ## 2. 验证方法
 
 - 只调用 Hyperliquid 公共只读 Info API 和 WebSocket；
@@ -40,7 +42,7 @@
 
 ## 3. 必需标的覆盖
 
-2026-08-15 动态发现默认 DEX 加 9 个 HIP-3 DEX。当前精确覆盖如下：
+2026-08-15 动态发现默认 DEX 加 9 个 HIP-3 DEX。首次检查错误地只按字面 symbol 精确匹配；复核业务别名后的当前覆盖如下：
 
 | Symbol | 有非零 OI 的候选 | 结论 |
 |---|---|---|
@@ -49,18 +51,26 @@
 | MU | `xyz:MU` | `AVAILABLE` |
 | SMH | `xyz:SMH` | `AVAILABLE`，仍需单独检查深度 |
 | SKHY | `xyz:SKHY` | `AVAILABLE` |
-| SOXX | 无 | `UNAVAILABLE` |
-| QQQ | 无 | `UNAVAILABLE` |
+| SOXX 语义 | `xyz:SMH` | `AVAILABLE_PROXY` |
+| QQQ/Nasdaq 语义 | `xyz:XYZ100` | `AVAILABLE_PROXY` |
 | SPY | 无 | `UNAVAILABLE` |
-| Samsung | 无 | `UNAVAILABLE` |
-| KOSPI / KOSPI200 | 无 | `UNAVAILABLE` |
+| Samsung | `xyz:SMSN` | `AVAILABLE` |
+| KOSPI200 语义 | `xyz:KR200` | `AVAILABLE_PROXY` |
 | USDKRW | 无 | `UNAVAILABLE` |
 | US2Y / US10Y | 无 | `UNAVAILABLE` |
 | Brent | 无 | `UNAVAILABLE` |
 | DXY | 只有零 OI 候选 | `UNAVAILABLE` |
 | WTI | 只有零 OI 候选 | `UNAVAILABLE` |
 
-因此当前原版全局分析缺少多个必需标的，Eligibility Gate 必须跳过，不得生成看似完整的报告。
+复核后，六个核心价格指标所需合约均有候选。SPY、利率、外汇或能源等非核心输入缺失时，只跳过依赖它们的阶段或模块，不使用其他行情源补齐。
+
+### 3.1 代理语义
+
+- `SMSN` 的 oracle 跟踪 Samsung Electronics 005930.KS 并将 KRW 价格换算为 USD。
+- `KR200` 跟踪韩国 200 指数篮子，是 KOSPI200 语义代理，不得标成 KOSPI 综合指数原值。
+- `XYZ100` 跟踪 100 家大型非金融美国公司，是 Growth/Nasdaq 语义代理，不得标成 QQQ 原值。
+- `SMH` 是非杠杆半导体 ETF，用于 Semiconductor benchmark。
+- `SOXL` 虽存在且有 OI，但每日目标为半导体指数的 3 倍且每日重置；不适合作为未经变换的 Relative Strength 基准，因此明确拒绝该替代。
 
 ## 4. 动态发现与同名合约
 
@@ -73,6 +83,8 @@
 | `xyz:MU` | 973.32 | 972.93 | 0.0000501728 | 142790.9 |
 | `xyz:SMH` | 动态值 | 动态值 | 动态值 | 2735.562 |
 | `xyz:SKHY` | 166.31 | 166.26 | 0.0000243805 | 1399435.78 |
+
+别名复核时 `xyz:KR200`、`xyz:SOXL`、`xyz:XYZ100` 和 `xyz:SMSN` 均返回非零 OI 与双边盘口。选择 SMH 而非 SOXL 是指标语义决定，不是覆盖缺失。
 
 `flx:NVDA`、`km:NVDA`、`km:MU`、`cash:NVDA`、`mkts:NVDA`、`mkts:MU` 同名但 OI 为零。由此禁止只按 ticker 选择合约，也不能永久硬编码 `xyz`。
 
@@ -132,3 +144,6 @@ WebSocket 对 `xyz:SKHY` 的 `l2Book` 和 `activeAssetCtx` 订阅成功返回：
 - [Hyperliquid Info endpoint](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint)
 - [Hyperliquid Perpetuals API](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals)
 - [Hyperliquid WebSocket subscriptions](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions)
+- [trade.xyz Specification Index](https://docs.trade.xyz/consolidated-resources/specification-index)
+- [trade.xyz Korea assets](https://docs.trade.xyz/asset-directory/korea)
+- [trade.xyz Equity indices](https://docs.trade.xyz/xyz-perps-specification/equity-indices)
