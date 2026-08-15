@@ -3,6 +3,7 @@ module github.com/shaojie-li/stocks-marketing
 go 1.26.6
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/riverqueue/river v0.43.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.43.0

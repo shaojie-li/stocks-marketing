@@ -1,0 +1,12 @@
+[
+  {
+    "universe": [
+      {"szDecimals":3,"name":"xyz:MU","maxLeverage":10},
+      {"szDecimals":2,"name":"xyz:SKHY","maxLeverage":10}
+    ]
+  },
+  [
+    {"funding":"-0.0000088899","openInterest":"142814.6440000001","prevDayPx":"976.4","dayNtlVlm":"140592967.7220497727","oraclePx":"973.9","markPx":"973.36","midPx":"973.185"},
+    {"funding":"0.0000001021","openInterest":"1399928.0799999998","prevDayPx":"167.42","dayNtlVlm":"84367987.3520999253","oraclePx":"166.22","markPx":"166.18","midPx":"166.185"}
+  ]
+]

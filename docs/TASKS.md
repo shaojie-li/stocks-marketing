@@ -23,9 +23,11 @@ GitHub Issues 是实施任务的唯一事实源。本文件只保存稳定编号
 T-001 全局分析规则与输出契约 ─┐
                                 ├→ T-003 项目骨架与最小垂直链路（DONE）
 T-002 核心数据源真实能力验证 ─┘
+                                      ↓
+T-004 Hyperliquid 实时行情快路径与数据质量门（DONE）
 ```
 
-T-001、T-002 与 T-003 已完成，形成规则契约、Hyperliquid 数据边界和可运行的最小垂直链路。后续任务需根据首个真实采集与报告阶段的明确范围再创建 Issue。
+T-001 至 T-004 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路，以及带 Eligibility Gate 的真实行情快路径。下一任务应在这份统一快照之上实现首个确定性指标窗口，不重复接行情源。
 
 ## 4. 稳定任务索引
 
@@ -34,6 +36,7 @@ T-001、T-002 与 T-003 已完成，形成规则契约、Hyperliquid 数据边�
 | M0 | T-001 | 定义全局分析规则与结构化输出契约 | [#1](https://github.com/shaojie-li/stocks-marketing/issues/1) | `DONE` |
 | M0 | T-002 | 验证核心数据源的真实覆盖、时效与授权边界 | [#2](https://github.com/shaojie-li/stocks-marketing/issues/2) | `DONE` |
 | M1 | T-003 | 建立项目骨架与最小可验证垂直链路 | [#3](https://github.com/shaojie-li/stocks-marketing/issues/3) | `DONE` |
+| M2 | T-004 | 接入 Hyperliquid 实时行情快路径与数据质量门 | [#8](https://github.com/shaojie-li/stocks-marketing/issues/8) | `DONE` |
 
 ## 5. 暂不进入关键路径
 
