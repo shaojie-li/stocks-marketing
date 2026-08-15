@@ -20,6 +20,11 @@
     {"asset": "xyz:SKHY", "mark_px": "166.31", "oracle_px": "166.26", "funding": "0.0000243805", "open_interest": "1399435.78"}
   ],
   "zero_open_interest_duplicates": ["flx:NVDA", "km:NVDA", "km:MU", "cash:NVDA", "mkts:NVDA", "mkts:MU"],
+  "coverage_snapshot": {
+    "available_nonzero_open_interest": ["NVDA", "AMD", "MU", "SMH", "SKHY"],
+    "missing": ["SOXX", "QQQ", "SPY", "SAMSUNG", "KOSPI", "KOSPI200", "USDKRW", "US2Y", "US10Y", "BRENT"],
+    "zero_open_interest_only": ["DXY", "WTI"]
+  },
   "books": [
     {"asset": "xyz:NVDA", "server_time_ms": 1786779403515, "best_bid": {"px": "224.48", "sz": "25.245"}, "best_ask": {"px": "224.5", "sz": "3.988"}, "response_sha256": "81ecfef24d2065c3d06a29c2aabd32f6ae72352a90936d99d48f700c26dcadb6"},
     {"asset": "xyz:AMD", "server_time_ms": 1786779404118, "best_bid": {"px": "513.69", "sz": "3.264"}, "best_ask": {"px": "513.85", "sz": "5.425"}, "response_sha256": "c9ffe34c512ea20d28040c4c594e686bd911edc943fdc515f427f6e0dd95f9d9"},

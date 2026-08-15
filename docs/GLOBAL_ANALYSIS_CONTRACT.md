@@ -62,6 +62,12 @@ rule_version + phase + primary_asset + window_type + window_start + window_end +
 
 相同幂等键和相同输入哈希必须返回同一 Analysis Run；相同幂等键但输入哈希不同必须显式报冲突，不得覆盖历史结果。
 
+### 2.5 市场数据 Eligibility Gate
+
+根据 [D-002](DECISIONS.md#d-002-hyperliquid-是唯一市场数据源缺失时停止处理)，Hyperliquid 是唯一市场数据源。每个 phase 在创建 Analysis Run 之前必须确认该阶段全部必需 symbol、字段、窗口和 freshness 均可用。
+
+Gate 未通过时记录 `SKIPPED_SOURCE_INCOMPLETE` 运维事件，明确缺失项和检查时间，不创建报告、不调用模型、不发送 Discord 交易分析。本文后续的 `UNAVAILABLE` 规则适用于已经通过 Gate 后，非阶段必需证据在处理期间失效的报告；不能用它绕过启动 Gate 生成长期残缺报告。
+
 ## 3. 行情 Observation 契约
 
 每条行情至少包含：

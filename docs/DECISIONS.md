@@ -27,7 +27,7 @@
 - 模型无法通过改变措辞覆盖领域引擎状态；这降低灵活性，但换取可重复、可测试和可追溯。
 - 数据源验证必须证明能够提供本契约要求的 session、时间戳、资金流和 Crowding 输入；无法提供时明确降级或调整 MVP。
 
-## D-002 Hyperliquid 统一合约行情，外部来源只补分析事实
+## D-002 Hyperliquid 是唯一市场数据源，缺失时停止处理
 
 - 状态：Accepted
 - 日期：2026-08-15
@@ -35,23 +35,23 @@
 
 ### 背景
 
-系统最终在 Hyperliquid 的币股合约上观察并可能执行交易，但全局分析还依赖 SOXX/QQQ、Samsung/KOSPI、韩国外资流、宏观 Consensus 和公司原始披露。2026-08-15 的公共 live check 只发现有非零 OI 的 NVDA、AMD、MU、SMH 和 SKHY 等部分合约；关键基准和事实数据并不都存在于 Hyperliquid。
+系统最终在 Hyperliquid 的币股合约上观察并可能执行交易。若行情同时来自多个供应商，需要处理 symbol 映射、交易时段、价格口径、授权和故障切换，会显著增加早期产品的错误面。
 
-若强制所有分析只使用 Hyperliquid，六个核心指标会因缺少基准长期不可用。若同时把外部现货价格和合约价格混成一个字段，交易时段、溢价和周末 oracle 又会被错误解释。
+2026-08-15 的公共 live check 发现有非零 OI 的 NVDA、AMD、MU、SMH 和 SKHY 等部分合约，但 SOXX、QQQ、Samsung、KOSPI 等关键基准不存在。项目接受覆盖不完整换取单一口径，缺失时不采用替代行情源。
 
 ### 决策
 
-- Hyperliquid 是币股合约的统一行情来源：合约发现、mark、oracle、L2、funding、OI、成交量、Crowding 和未来执行前检查均来自 Hyperliquid。
-- 外部来源只补充 Hyperliquid 不具备的分析事实：现货/ETF/指数基准、韩国投资者资金流、官方宏观数据、市场 Consensus 和公司原始披露。
-- 合约 Observation 与参考市场 Observation 分开保存，分别记录 symbol、venue、session、timestamp 和 source；不得用外部现货价覆盖 Hyperliquid mark，也不得把周末合约报价描述成底层现货开盘。
-- Relative Strength 和 Alpha 使用参考市场中同窗口、同 session 语义的数据计算；Hyperliquid 用于验证可执行价格、溢价、流动性和拥挤度。
+- Hyperliquid 是唯一市场数据源。合约发现、mark、oracle、L2、funding、OI、成交量、Crowding 和未来执行前检查均来自 Hyperliquid。
+- 不接入 KIS、Massive、BLS 或其他来源补齐行情、指数、资金流或宏观数值；新闻文章中的价格也不得使用。
+- 每个分析阶段先执行确定性 Eligibility Gate。只有该阶段全部必需 symbol、字段、窗口和 freshness 均可用时，才创建 Analysis Run、调用 AI 和发送 Discord。
+- Gate 失败时记录结构化 `SKIPPED_SOURCE_INCOMPLETE` 运维事件，包含缺失项和检查时间；不生成残缺交易报告，不把缺失按零分或中性信号处理。
+- 周末 Hyperliquid 合约状态可以是 `CONTINUOUS`，不得描述成底层美韩现货市场 OPEN。
 - Hyperliquid 合约通过 `dex + asset` 动态发现。名称命中后仍须检查非零 OI、双边盘口、oracle freshness 和 50 bps 深度；不得永久硬编码某个 DEX 或把零 OI 同名合约视为可交易。
-- 外部分析数据缺失时对应指标明确 `UNAVAILABLE` 并降低 Confidence，不改用不等价的 Hyperliquid 合约凑数。
 - 当前范围仍然只做 Discord 决策辅助；本决策定义未来执行数据边界，不授权自动下单。
 
 ### 影响
 
-- 数据模型需要区分 `REFERENCE_MARKET` 与 `CONTRACT_MARKET`，报告同时展示参考市场状态和合约市场状态。
-- Hyperliquid 是必需链路；外部供应商可以按单项能力替换，不进入交易执行路径。
-- 同一分析可能出现“参考趋势有效，但当前合约流动性不可执行”，此时 Trend Score 保持独立，Entry Score 或执行资格下降。
-- T-002 仍需验证外部最小组合，但不再追求让任一外部供应商同时承担当合约行情和交易价格源。
+- T-002 不再验证 KIS、Massive 或宏观数据商，改为冻结 Hyperliquid 覆盖矩阵、失败行为和 Eligibility Gate 输入。
+- 当前 SOXX、QQQ、Samsung、KOSPI 等缺失，因此依赖这些标的的原版全局分析会被 Gate 跳过，不发送交易报告。
+- 新合约上线后通过动态发现自动进入候选，但仍须完整通过字段、时间和流动性检查。
+- 公司公告和产业新闻不属于市场行情；是否接入官方事实源由后续独立决策处理，不能提供或覆盖任何价格字段。
