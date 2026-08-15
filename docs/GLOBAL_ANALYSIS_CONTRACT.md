@@ -1,7 +1,7 @@
 # 全局交易分析契约
 
-状态：Frozen v1.2.0
-规则版本：`global-analysis/1.2.0`
+状态：Frozen v1.3.0
+规则版本：`global-analysis/1.3.0`
 更新日期：2026-08-15
 
 ## 1. 目标与边界
@@ -10,7 +10,7 @@
 
 当前系统提供可追溯的 Discord 决策辅助，不连接钱包、券商私有交易接口或自动下单。模型只解释已经计算的事实、证据和状态，不负责计算权威数值、补齐缺失数据或改变确定性结论。
 
-为消除原始规则中的歧义，v1.2 做出以下决定：
+为消除原始规则中的歧义，v1.3 做出以下决定：
 
 - 最终报告必须同时输出 Fundamental、Trend、Entry 三个 Score。
 - `SKHY Alpha` 拆为 `SKHY Sector Alpha` 和 `SKHY Market Alpha`，不再使用含义不明的合成字段。
@@ -18,6 +18,7 @@
 - 所有价格、收益率和资金流计算使用十进制定点数；持久化不得以 `float64` 作为权威值。
 - `UNAVAILABLE` 是可用性，不是市场方向；Schema 使用 `availability` 表达，状态值在不可用时为 `null`。
 - Trend 的 SKHY Price Structure 描述 Hyperliquid 连续合约 UTC 日线，不是韩国现货正式收盘；形成中的日线和不足 50 根的历史不得进入计算。
+- 首个生产可计算 Catalyst 只接受 DART 中 SK hynix 的衍生品交易损失首次披露；事件选择、方向、价格窗口和接受状态全部由确定性规则完成。
 
 ## 2. 时间、市场状态与分析身份
 
@@ -49,6 +50,7 @@
 | `AFTERHOURS` | 当日正式收盘 | 当前盘后 `as_of` | 盘后变化；不得改写 Regular Close |
 | `OVERNIGHT` | 目标市场上一正式收盘 | 下一正式开盘或开盘前最后可验证价格 | 隔夜传导 |
 | `CONTRACT_24H` | `as_of - 24h` 的连续场所价格 | 连续场所 `as_of` | Hyperliquid 周末及 24 小时行情 |
+| `CATALYST_24H` | 严格早于 `event_at` 的最近完整 1 分钟 candle close | 严格早于 `min(event_at + 24h, as_of)` 的最近完整 1 分钟 candle close | 事件后的目标/基准价格接受 |
 | `WEEK_TO_DATE` | 上一交易周最后正式收盘 | 当前 `as_of` 对应的同类价格 | 周内趋势 |
 
 `REGULAR_SESSION` 使用 close-to-close 语义而不是 open-to-close，从而保留跳空对持仓和消息接受度的影响。
@@ -182,6 +184,16 @@ flow_ratio_pct = net_buy_value / traded_value * 100
 
 ## 6. Catalyst 价格接受
 
+v1.3 的首个 Catalyst 切片只使用金融监督院 DART 官方公司 RSS：
+
+- 公司固定为 `dc:creator = SK하이닉스`、DART corp code `00164779`；
+- 报告名规范化后必须精确等于 `파생상품거래손실발생`，映射为 `DERIVATIVE_TRADING_LOSS_OCCURRED / CONFIRMED / BEARISH`；
+- `rcpNo` 是稳定来源事件 ID，`pubDate` 与 `dc:date` 必须表示同一 UTC 瞬时，并同时作为 `published_at` 和 `event_at`；
+- 更正、补充或撤回返回 `DATA_CONFLICT / REVISION_UNSUPPORTED`；没有最近受支持事件返回 `UNAVAILABLE / NO_RECENT_SUPPORTED_EVENT`；
+- 其他报告不得产生方向，DART 不可用时不得回退到 Newsroom、搜索、网页 AI 识别或媒体。
+
+目标固定为 `xyz:SKHY`，基准固定为 `xyz:SMSN`。两者的 `CATALYST_24H` 必须从 Hyperliquid 取得完全相同的实际起止 1 分钟 candle close，锚点偏差小于 60 秒；任一 candle 缺失、间断、重复、乱序、形成中或载荷非法时整项不可用，不返回单边结果。`as_of < event_at + 24h` 时使用已完成的最新共同终点并标记 `preliminary=true`；达到 24 小时后终点固定，不随当前 mark 漂移。
+
 每个 Catalyst 必须保存 `expected_direction`、`event_at`、事件前最后可交易参考价、评估窗口和基准资产。先计算：
 
 ```text
@@ -195,7 +207,7 @@ directional_alpha = direction_sign * (target_return_pct - benchmark_return_pct)
 - 其他有效结果：`NEUTRAL`。
 - 缺少事件方向、事件前价格、目标价格或基准价格：不可用，不猜测。
 
-评估默认截至事件后的第一个完整正式交易时段；该时段未结束时结果标记为 preliminary。若存在看多 Memory Catalyst，同时 Memory RS 为 `STRONG`、两个 SKHY Alpha 均为 `WEAK` 且外资为 `NET_SELL`，必须输出 `Cross-Market = DIVERGENCE` 和 `Catalyst = REJECTED`。
+本切片评估截至 `event_at + 24h`，窗口未结束时结果标记为 preliminary。若存在看多 Memory Catalyst，同时 Memory RS 为 `STRONG`、两个 SKHY Alpha 均为 `WEAK` 且外资为 `NET_SELL`，必须输出 `Cross-Market = DIVERGENCE` 和 `Catalyst = REJECTED`；该场景不授权新增事件类型。
 
 ## 7. Crowding
 
@@ -331,7 +343,7 @@ WEAK → IMPROVING → CONFIRMED → STRONG → PERSISTENT_STRONG
 - 关键数据缺失或冲突：状态不变，streak 清零，Confidence 降低。
 - 发生迁移后对应 streak 清零，并保存 from、to、原因、session date 和规则版本。
 
-T-006 将分类与迁移实现为纯领域逻辑并回放冻结向量。Foreign Flow、Catalyst 或 Price Structure 等关键输入不可用时输出 `DATA_UNAVAILABLE`，保持状态、清零 streak，并把 Confidence 上限降为 `LOW`。T-007 以 Analysis Run 为聚合根原子保存 Bundle、可比 Score 和每个已评估 session 的 Memory 结果；同一规则版本与主资产的 Memory 历史必须按 session date 顺序追加，精确重放返回既有历史，冲突或乱序输入不得覆盖旧状态。即使 T-008 的 Price Structure 已可用，只要 Foreign Flow 或 Catalyst 仍缺失，Memory 仍必须保持 `DATA_UNAVAILABLE`。
+T-006 将分类与迁移实现为纯领域逻辑并回放冻结向量。Foreign Flow、Catalyst 或 Price Structure 等关键输入不可用时输出 `DATA_UNAVAILABLE`，保持状态、清零 streak，并把 Confidence 上限降为 `LOW`。T-007 以 Analysis Run 为聚合根原子保存 Bundle、可比 Score 和每个已评估 session 的 Memory 结果；同一规则版本与主资产的 Memory 历史必须按 session date 顺序追加，精确重放返回既有历史，冲突或乱序输入不得覆盖旧状态。即使 T-008 的 Price Structure 和 T-010 的 Catalyst 已可用，只要 Foreign Flow 仍缺失，Memory 仍必须保持 `DATA_UNAVAILABLE`。
 
 ## 10. 跨市场确认链
 
@@ -397,6 +409,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 
 - `global-analysis/1.1.0`：在 Hyperliquid 单一市场数据源约束下，引入版本化 trade.xyz 映射；核心指标基准改为 `SMH`、`XYZ100`、`SMSN` 和 `KR200`，并明确拒绝无变换的 `SOXL` 替代。
 - `global-analysis/1.2.0`：冻结 `xyz:SKHY` UTC 连续合约日线的 EMA20、EMA50、Wilder ATR14、先前 20 日支撑与历史充足性门，并把可用 Price Structure 接入 Analysis Bundle 和 Trend Score。
+- `global-analysis/1.3.0`：冻结 DART SK hynix 衍生品交易损失 Catalyst、`xyz:SKHY`/`xyz:SMSN` 的 `CATALYST_24H` 同锚点窗口及价格接受状态，并把完整 Catalyst Evaluation 接入 Analysis Bundle 输入哈希。
 
 ## 14. 验证资产
 

@@ -32,6 +32,25 @@ type WindowBounds struct {
 	RequestEnd       time.Time
 }
 
+type CatalystBounds struct {
+	WindowStart    time.Time
+	WindowEnd      time.Time
+	TheoreticalEnd time.Time
+	RequestStart   time.Time
+	Preliminary    bool
+}
+
+func CatalystWindowBounds(eventAt, asOf time.Time) (CatalystBounds, error) {
+	start, end, theoreticalEnd, preliminary, err := domain.CatalystWindowTimes(eventAt, asOf)
+	if err != nil {
+		return CatalystBounds{}, err
+	}
+	return CatalystBounds{
+		WindowStart: start, WindowEnd: end, TheoreticalEnd: theoreticalEnd,
+		RequestStart: start.Add(-candleInterval + time.Millisecond), Preliminary: preliminary,
+	}, nil
+}
+
 func ParseCandles(raw []byte, expectedSymbol, expectedInterval string) ([]Candle, error) {
 	var payload []struct {
 		OpenTime  int64  `json:"t"`

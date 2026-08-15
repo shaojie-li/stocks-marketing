@@ -1,7 +1,7 @@
-# 市场与 Foreign Flow 数据能力验证
+# 市场、Foreign Flow 与 Catalyst 数据能力验证
 
-状态：Frozen v1.2
-关联任务：[T-002](https://github.com/shaojie-li/stocks-marketing/issues/2)、[T-009](https://github.com/shaojie-li/stocks-marketing/issues/18)
+状态：Frozen v1.3
+关联任务：[T-002](https://github.com/shaojie-li/stocks-marketing/issues/2)、[T-009](https://github.com/shaojie-li/stocks-marketing/issues/18)、[T-010](https://github.com/shaojie-li/stocks-marketing/issues/20)
 最近验证：2026-08-15
 
 ## 1. 已冻结边界
@@ -183,6 +183,22 @@ Hyperliquid 官方当前支持 `1d` interval 且最多返回最近 5000 根 cand
 
 AI 浏览器或模型视觉识别不构成例外：定时让 AI 打开统计网页仍是自动化获取，不能替代数据许可；动态表格识别也不能提供稳定 Schema、最终状态和可重放计算。用户手动提供的单次截图或导出文件可以用于非权威解释，但必须标明人工来源，不得进入 Analysis Bundle、Trend Score、Memory 或生产历史。
 
+### 10.2 DART Catalyst 来源与授权边界
+
+2026-08-15 按 T-010 复核 DART 官方 RSS 服务。官方说明把 RSS 定义为自动、便捷提供更新的服务，明确提供公司级 feed，并限定为上市公司最近 5 个营业日披露。SK hynix corp code `00164779` 的只读 feed 无需账户或密钥；脱敏一手 fixture 见 [`t010-skhy-company-rss.xml`](../testdata/data-sources/dart/t010-skhy-company-rss.xml)。
+
+本项目只保存必要披露元数据、响应 SHA-256 与派生 Catalyst，不保存正文或对外提供原始 RSS。该边界支持当前只读自动获取与内部派生分析，不代表取得原始披露批量再分发、正文复制或所有商业用途的授权；产品用途扩大时仍需重新审查条款。
+
+现场 feed 提供 `title`、`link/guid`、`pubDate`、`dc:date` 和 `dc:creator`。`rcpNo=20260814802986` 的 `파생상품거래손실발생` 由 `SK하이닉스` 提交，两个时间字段都映射到 `2026-08-14T07:44:00Z`。公司 feed 也可能包含由 `유가증권시장본부` 发起的查询披露；这类 item 保留提交人事实但不参与 SK hynix Catalyst 候选，不能因其 creator 不同而令整个 feed 失败。首个切片据此冻结：
+
+- 唯一事实源为 `https://dart.fss.or.kr/api/companyRSS.xml?crpCd=00164779`；host、路径、corp code、公司、时间和 `rcpNo` 均需校验；
+- 只有首次披露 `파생상품거래손실발생` 映射为 `DERIVATIVE_TRADING_LOSS_OCCURRED / CONFIRMED / BEARISH`；其他报告不产生方向；
+- 更正、补充或撤回为 `DATA_CONFLICT / REVISION_UNSUPPORTED`；没有最近受支持事件为 `UNAVAILABLE / NO_RECENT_SUPPORTED_EVENT`；
+- DART 不可用时不回退到 Newsroom、搜索、网页识别或媒体；DART 是非价格事实源，不改变 Hyperliquid 作为唯一价格行情源的边界；
+- 目标 `xyz:SKHY` 与基准 `xyz:SMSN` 只使用 Hyperliquid 完整 `1m` candle 构造 `CATALYST_24H`，任一侧缺失即整项不可用。
+
+SK hynix Newsroom 的现行 Terms 只允许非商业使用，并明确禁止 robot、spider 或其他自动设备访问站点以监控或复制材料。即使 Press RSS 技术上可读，也不能作为本项目的后台生产来源；AI 自动打开网页同样属于自动化获取，不能绕过该限制。
+
 ## 11. 可重放验证
 
 公共只读探针只依赖 Python 标准库，不读取账户、地址、token 或 header：
@@ -201,13 +217,14 @@ T-004 增加 Go 运行时验证：REST 的 metadata/context 只按同一响应�
 ```bash
 go run ./cmd/market-check
 go run ./cmd/indicator-check
+go run ./cmd/catalyst-check
 ```
 
 探针实时复核版本化映射、退市、OI、mark/oracle、双边盘口和 OI cap。429、超时、断线与 stale 的降级策略由确定性 fixture 校验；不以破坏公共服务或等待真实故障作为验收手段。
 
 ## 12. 结论
 
-T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid 映射；非核心 USDKRW、DXY 和美债收益率当前不可用，依赖它们的阶段停止处理而不补源。T-008 已证明 SKHY 连续合约日线接口可用，但截至 2026-08-15 已完成历史仍少于 EMA50 门槛，Price Structure 必须暂时降级。所有可用性均须在运行时重新发现和过 Gate，本次快照不构成永久保证。
+T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid 映射；非核心 USDKRW、DXY 和美债收益率当前不可用，依赖它们的阶段停止处理而不补源。T-008 已证明 SKHY 连续合约日线接口可用，但截至 2026-08-15 已完成历史仍少于 EMA50 门槛，Price Structure 必须暂时降级。T-010 已证明 DART 首次损失披露可与 Hyperliquid 双资产完整 24 小时窗口组成确定性 Catalyst，但该能力只覆盖一个报告类型和最近 5 个营业日 feed。所有可用性均须在运行时重新发现和过 Gate，本次快照不构成永久保证。
 
 ## 13. 官方参考
 
@@ -228,3 +245,6 @@ T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid �
 - [KRX OPEN API 使用条款](https://openapi.krx.co.kr/contents/OPP/INFO/OPPINFO002.jsp)
 - [KRX 期货数据商品](https://data.krx.co.kr/contents/MDC/DATA/datasale/index.cmd?prodType=FF&viewNm=dataProdList)
 - [KRX/Koscom 市场数据使用政策](https://data.krx.co.kr/inc/datasale/Market%20Data%20Usage%20Polices_ko.pdf)
+- [DART RSS 服务说明](https://dart.fss.or.kr/introduction/content6.do)
+- [OpenDART 使用条款](https://opendart.fss.or.kr/intro/terms.do)
+- [SK hynix Newsroom Terms of Use](https://news.skhynix.com/en/terms-of-use/)

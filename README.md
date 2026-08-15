@@ -15,9 +15,14 @@ Hyperliquid 同批当前 mark + 24h 起点 candle
 → `xyz:SKHY` 已完成 UTC 日线 Price Structure（历史充足时）
 → 按可用权重归一化的 Trend Score
 
+DART SK hynix 公司 RSS 中的衍生品交易损失首次披露
+→ 确定性 `BEARISH` Catalyst Event
+→ Hyperliquid `xyz:SKHY` / `xyz:SMSN` 同锚点 24h 分钟价格窗口
+→ `ACCEPTED` / `NEUTRAL` / `REJECTED` Catalyst Evaluation
+
 固定分析 fixture
 → 同窗口核心指标
-→ 符合 global-analysis/1.2.0 的结构化报告
+→ 符合 global-analysis/1.3.0 的结构化报告
 → PostgreSQL 幂等 Analysis Run
 → River 可靠任务
 → Discord Webhook
@@ -29,7 +34,7 @@ Hyperliquid 同批当前 mark + 24h 起点 candle
 
 缺少核心行情时返回 `SKIPPED_SOURCE_INCOMPLETE`，不会调用 AI 或发送残缺报告。
 
-Analysis Bundle 固定保存稳定分析身份、输入哈希、Observation、六个核心指标、Trend Score、Memory 结果和数据质量。精确重放返回同一组历史 ID；身份相同但输入不同会显式冲突。Trend 方向只查询规则版本、主资产、phase、window type 和可用组件集合完全相同的前值，Memory 只按 session date 顺序演进。
+Analysis Bundle 固定保存稳定分析身份、输入哈希、Observation、六个核心指标、Price Structure、Catalyst Evaluation、Trend Score、Memory 结果和数据质量。精确重放返回同一组历史 ID；身份相同但输入不同会显式冲突。Trend 方向只查询规则版本、主资产、phase、window type 和可用组件集合完全相同的前值，Memory 只按 session date 顺序演进。
 
 SKHY Price Structure 只使用 Hyperliquid `xyz:SKHY` 已完成的 UTC `1d` candle。至少 50 根连续已完成日线时计算 EMA20、EMA50、ATR14 和评估日前 20 日支撑低点，并把 Trend 覆盖率从 80% 提升到 90%；历史不足、序列异常或来源失败时保持 `UNAVAILABLE`。2026-08-15 live check 只有 37 根已完成日线，所以当前真实结果仍为 `UNAVAILABLE`。Foreign Flow 的 KRX 可行性结论为 `NO-GO`：公开 API 不覆盖所需投资者分类，当前项目也没有允许后台派生计算与 Discord 输出的数据合同，因此不接入、不抓取网页私有接口，也不从价格反推。Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
 
@@ -90,6 +95,14 @@ go run ./cmd/indicator-check
 ```
 
 命令使用同一批当前 mark 和完全相同的分钟起点锚点计算收益，并以相同 `as_of` 检查 `xyz:SKHY` 已完成 UTC 日线。输出 8 个 Observation、派生指标、Price Structure 可用性与 Trend Score，不输出原始 candle 数组。Price Structure 历史达到门槛时 Trend 覆盖率为 90%，否则为 80%；两种情况的 Confidence 上限均为 `MEDIUM`。Foreign Flow 继续不可用，缺失项不补零，也不接第二行情源。
+
+验证当前 DART Catalyst 与 24 小时价格接受（只读）：
+
+```bash
+go run ./cmd/catalyst-check
+```
+
+当前只识别 SK hynix DART 公司 RSS 中报告名精确为 `파생상품거래손실발생` 的首次披露。DART 没有最近受支持事件时输出 `NO_RECENT_SUPPORTED_EVENT`；更正、补充或撤回输出 `DATA_CONFLICT`。不会回退到 SK hynix Newsroom、搜索、网页识别、媒体或第二价格源，也不会调用 AI、Discord 或交易接口。
 
 进程收到 `SIGINT` 或 `SIGTERM` 后停止接收任务，并在 15 秒边界内关闭 River 和数据库连接。
 

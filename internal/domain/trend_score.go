@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	AvailabilityAvailable   = "AVAILABLE"
-	AvailabilityUnavailable = "UNAVAILABLE"
+	AvailabilityAvailable    = "AVAILABLE"
+	AvailabilityUnavailable  = "UNAVAILABLE"
+	AvailabilityDataConflict = "DATA_CONFLICT"
 
 	PriceStructureAboveSupport PriceStructureState = "ABOVE_SUPPORT"
 	PriceStructureRange        PriceStructureState = "RANGE"
