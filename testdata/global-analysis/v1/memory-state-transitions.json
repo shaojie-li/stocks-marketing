@@ -1,5 +1,5 @@
 {
-  "rule_version": "global-analysis/1.0.0",
+  "rule_version": "global-analysis/1.1.0",
   "cases": [
     {
       "name": "weak_first_supportive_day_does_not_upgrade",

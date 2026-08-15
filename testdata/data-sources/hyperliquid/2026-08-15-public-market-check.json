@@ -1,0 +1,86 @@
+{
+  "fixture_version": 1,
+  "source": "hyperliquid",
+  "capture_started_at": "2026-08-15T07:36:15.955764Z",
+  "capture_completed_at": "2026-08-15T07:36:43.503676Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "contains_secrets": false,
+  "capture_type": "sanitized_projection",
+  "perp_dexs": {
+    "http_status": 200,
+    "count": 10,
+    "names": ["xyz", "flx", "vntl", "hyna", "km", "abcd", "cash", "para", "mkts"],
+    "response_sha256": "50be9afaca07baec8a61f352b0d1313030488521a0837b46752d39026e40be47"
+  },
+  "selected_asset_contexts": [
+    {"asset": "xyz:NVDA", "mark_px": "224.5", "oracle_px": "224.52", "funding": "0.00000625", "open_interest": "738094.088"},
+    {"asset": "xyz:AMD", "mark_px": "513.85", "oracle_px": "513.95", "funding": "0.00000625", "open_interest": "22180.554"},
+    {"asset": "xyz:MU", "mark_px": "973.32", "oracle_px": "972.93", "funding": "0.0000501728", "open_interest": "142790.9"},
+    {"asset": "xyz:TSM", "mark_px": "424.25", "oracle_px": "424.29", "funding": "0.00000625", "open_interest": "23792.408"},
+    {"asset": "xyz:SKHY", "mark_px": "166.31", "oracle_px": "166.26", "funding": "0.0000243805", "open_interest": "1399435.78"}
+  ],
+  "zero_open_interest_duplicates": ["flx:NVDA", "km:NVDA", "km:MU", "cash:NVDA", "mkts:NVDA", "mkts:MU"],
+  "coverage_snapshot": {
+    "available_nonzero_open_interest": ["NVDA", "AMD", "MU", "SMH", "SKHY", "KR200", "SOXL", "XYZ100", "SMSN", "SP500", "BRENTOIL", "CL"],
+    "missing": ["US2Y", "US10Y"],
+    "delisted_zero_open_interest": ["KRW", "DXY"]
+  },
+  "alias_mapping_check": {
+    "captured_at": "2026-08-15T07:49:55.581166Z",
+    "assets": [
+      {"asset": "xyz:KR200", "open_interest": "1133.7136", "mark_px": "1093.2", "oracle_px": "1091.9", "best_bid": "1093.2", "best_ask": "1094.6"},
+      {"asset": "xyz:SOXL", "open_interest": "34474.92", "mark_px": "144.08", "oracle_px": "144.06", "best_bid": "144.08", "best_ask": "144.09"},
+      {"asset": "xyz:XYZ100", "open_interest": "7763.3602", "mark_px": "30009.0", "oracle_px": "30010.0", "best_bid": "30008.0", "best_ask": "30009.0"},
+      {"asset": "xyz:SMSN", "open_interest": "285986.5479999999", "mark_px": "190.43", "oracle_px": "190.22", "best_bid": "190.41", "best_ask": "190.43"}
+    ]
+  },
+  "secondary_mapping_check": {
+    "captured_at": "2026-08-15T07:58:00Z",
+    "assets": [
+      {"asset": "xyz:SP500", "is_delisted": false, "open_interest": "66119.632", "mark_px": "7776.9", "oracle_px": "7777.8"},
+      {"asset": "xyz:KRW", "is_delisted": true, "open_interest": "0.0", "mark_px": "1416.5", "oracle_px": "1416.5"},
+      {"asset": "xyz:BRENTOIL", "is_delisted": false, "open_interest": "1914242.9399999995", "mark_px": "85.589", "oracle_px": "85.668"},
+      {"asset": "xyz:CL", "is_delisted": false, "open_interest": "2386789.3240000014", "mark_px": "80.63", "oracle_px": "80.724"},
+      {"asset": "xyz:DXY", "is_delisted": true, "open_interest": "0.0", "mark_px": "97.15", "oracle_px": "97.15"}
+    ]
+  },
+  "books": [
+    {"asset": "xyz:NVDA", "server_time_ms": 1786779403515, "best_bid": {"px": "224.48", "sz": "25.245"}, "best_ask": {"px": "224.5", "sz": "3.988"}, "response_sha256": "81ecfef24d2065c3d06a29c2aabd32f6ae72352a90936d99d48f700c26dcadb6"},
+    {"asset": "xyz:AMD", "server_time_ms": 1786779404118, "best_bid": {"px": "513.69", "sz": "3.264"}, "best_ask": {"px": "513.85", "sz": "5.425"}, "response_sha256": "c9ffe34c512ea20d28040c4c594e686bd911edc943fdc515f427f6e0dd95f9d9"},
+    {"asset": "xyz:MU", "server_time_ms": 1786779404579, "best_bid": {"px": "973.31", "sz": "0.226"}, "best_ask": {"px": "973.32", "sz": "2.23"}, "response_sha256": "d20f2de36ed55c7e3f01cbca228f778b4aef63540af057e1bff2e437473f9fe1"},
+    {"asset": "xyz:SKHY", "server_time_ms": 1786779405106, "best_bid": {"px": "166.31", "sz": "9.31"}, "best_ask": {"px": "166.32", "sz": "9.31"}, "response_sha256": "cd3784b990f09675bb0ce07bb1ce7715f0597a71c07df855c4580c51ca176228"}
+  ],
+  "websocket": {
+    "captured_at": "2026-08-15T07:40:12.554Z",
+    "url": "wss://api.hyperliquid.xyz/ws",
+    "asset": "xyz:SKHY",
+    "subscriptions": ["l2Book", "activeAssetCtx"],
+    "subscription_acknowledged": true,
+    "book_server_time_ms": 1786779612554,
+    "bid_levels": 20,
+    "ask_levels": 20,
+    "asset_context_fields": ["funding", "openInterest", "prevDayPx", "dayNtlVlm", "premium", "oraclePx", "markPx", "midPx", "impactPxs", "dayBaseVlm"]
+  },
+  "depth_50bps": [
+    {"asset": "xyz:NVDA", "server_time_ms": 1786779613631, "bid_usd": "283542.61", "ask_usd": "313733.83", "minimum_usd": "283542.61", "passes_100000_usd": true},
+    {"asset": "xyz:AMD", "server_time_ms": 1786779614167, "bid_usd": "65777.76", "ask_usd": "76369.01", "minimum_usd": "65777.76", "passes_100000_usd": false},
+    {"asset": "xyz:MU", "server_time_ms": 1786779614705, "bid_usd": "116800.39", "ask_usd": "110754.96", "minimum_usd": "110754.96", "passes_100000_usd": true},
+    {"asset": "xyz:SKHY", "server_time_ms": 1786779615243, "bid_usd": "308950.83", "ask_usd": "294394.43", "minimum_usd": "294394.43", "passes_100000_usd": true}
+  ],
+  "candle_snapshot": {
+    "captured_at": "2026-08-15T07:44:34.726837Z",
+    "request_start_ms": 1786088674726,
+    "request_end_ms": 1786779874726,
+    "interval": "1h",
+    "results": [
+      {"asset": "xyz:NVDA", "http_status": 200, "count": 193, "first_open_ms": 1786086000000, "last_open_ms": 1786777200000, "weekend_count": 56, "gap_count": 0, "response_sha256": "4e4caf510b6ecc676b292fd535f3776bba23dc841f0e5dad26ece860a83b725f"},
+      {"asset": "xyz:AMD", "http_status": 200, "count": 193, "first_open_ms": 1786086000000, "last_open_ms": 1786777200000, "weekend_count": 56, "gap_count": 0, "response_sha256": "f63441f0eaaefd0d1fec4862cb09aea1e8f13b0a44398fb026f10e9352262f11"},
+      {"asset": "xyz:MU", "http_status": 200, "count": 193, "first_open_ms": 1786086000000, "last_open_ms": 1786777200000, "weekend_count": 56, "gap_count": 0, "response_sha256": "3db7978a77400f12c0e5bc626642feba12890bddfd8463a98c36298a59039b9d"},
+      {"asset": "xyz:SKHY", "http_status": 200, "count": 193, "first_open_ms": 1786086000000, "last_open_ms": 1786777200000, "weekend_count": 56, "gap_count": 0, "response_sha256": "da7e87ddc92fa74cd26f35d2ec699693f6fe007b877c2ea6aa1587e83642a90b"}
+    ],
+    "failure_cases": [
+      {"asset": "xyz:DOES_NOT_EXIST", "interval": "1h", "http_status": 500, "body": null},
+      {"asset": "xyz:SKHY", "interval": "7m", "http_status": 422, "body_type": "error_text"}
+    ]
+  }
+}

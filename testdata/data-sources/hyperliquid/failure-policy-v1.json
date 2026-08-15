@@ -1,0 +1,33 @@
+{
+  "policy_version": "hyperliquid-source/1.0.0",
+  "rest": {
+    "timeout_ms": 15000,
+    "weight_budget_per_minute": 600,
+    "max_attempts": 3,
+    "retry_http_statuses": [408, 429, 500, 502, 503, 504],
+    "backoff_base_ms": 1000,
+    "backoff_cap_ms": 4000,
+    "jitter": "FULL"
+  },
+  "websocket": {
+    "ping_interval_ms": 30000,
+    "pong_timeout_ms": 10000,
+    "reconnect_backoff_ms": [1000, 2000, 4000, 8000, 16000, 30000],
+    "require_snapshot_after_reconnect": true
+  },
+  "eligibility_gate": {
+    "transport_freshness_max_age_ms": 5000,
+    "reject_when": [
+      "MAPPING_MISSING",
+      "ASSET_NOT_DISCOVERED",
+      "ASSET_DELISTED",
+      "OPEN_INTEREST_ZERO",
+      "MARK_OR_ORACLE_MISSING",
+      "BOOK_EMPTY_OR_ONE_SIDED",
+      "TRANSPORT_STALE",
+      "SNAPSHOT_RECOVERY_PENDING"
+    ],
+    "block_new_entry_when": ["OPEN_INTEREST_CAP_REACHED"]
+  },
+  "terminal_behavior": "SKIPPED_SOURCE_INCOMPLETE"
+}

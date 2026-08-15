@@ -1,0 +1,28 @@
+{
+  "mapping_version": "trade-xyz/1.0.0",
+  "rule_version": "global-analysis/1.1.0",
+  "source": "hyperliquid",
+  "dex": "xyz",
+  "mappings": [
+    {"semantic": "MEMORY_EQUITY", "requested_symbol": "MU", "asset": "xyz:MU", "relationship": "DIRECT"},
+    {"semantic": "SEMICONDUCTOR_BENCHMARK", "requested_symbol": "SOXX", "asset": "xyz:SMH", "relationship": "UNLEVERED_PROXY"},
+    {"semantic": "GROWTH_BENCHMARK", "requested_symbol": "QQQ", "asset": "xyz:XYZ100", "relationship": "INDEX_PROXY"},
+    {"semantic": "AMD_EQUITY", "requested_symbol": "AMD", "asset": "xyz:AMD", "relationship": "DIRECT"},
+    {"semantic": "NVIDIA_EQUITY", "requested_symbol": "NVDA", "asset": "xyz:NVDA", "relationship": "DIRECT"},
+    {"semantic": "SK_HYNIX_EQUITY", "requested_symbol": "SKHY", "asset": "xyz:SKHY", "relationship": "DIRECT"},
+    {"semantic": "SAMSUNG_EQUITY", "requested_symbol": "005930.KS", "asset": "xyz:SMSN", "relationship": "USD_CONVERTED_UNDERLYING"},
+    {"semantic": "KOREA_MARKET_BENCHMARK", "requested_symbol": "KOSPI200", "asset": "xyz:KR200", "relationship": "INDEX_PROXY"},
+    {"semantic": "SP500_BENCHMARK", "requested_symbol": "SPY", "asset": "xyz:SP500", "relationship": "INDEX_PROXY"},
+    {"semantic": "USD_KRW", "requested_symbol": "USDKRW", "asset": "xyz:KRW", "relationship": "FX_PROXY"},
+    {"semantic": "DOLLAR_INDEX", "requested_symbol": "DXY", "asset": "xyz:DXY", "relationship": "DIRECT"},
+    {"semantic": "BRENT_CRUDE", "requested_symbol": "BRENT", "asset": "xyz:BRENTOIL", "relationship": "FUTURES_PROXY"},
+    {"semantic": "WTI_CRUDE", "requested_symbol": "WTI", "asset": "xyz:CL", "relationship": "FUTURES_PROXY"}
+  ],
+  "rejected_substitutions": [
+    {
+      "semantic": "SEMICONDUCTOR_BENCHMARK",
+      "asset": "xyz:SOXL",
+      "reason": "DAILY_3X_LEVERAGE_AND_DAILY_RESET"
+    }
+  ]
+}
