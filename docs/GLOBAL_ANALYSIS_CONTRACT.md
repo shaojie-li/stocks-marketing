@@ -1,7 +1,7 @@
 # 全局交易分析契约
 
-状态：Frozen v1.1.0
-规则版本：`global-analysis/1.1.0`
+状态：Frozen v1.2.0
+规则版本：`global-analysis/1.2.0`
 更新日期：2026-08-15
 
 ## 1. 目标与边界
@@ -10,13 +10,14 @@
 
 当前系统提供可追溯的 Discord 决策辅助，不连接钱包、券商私有交易接口或自动下单。模型只解释已经计算的事实、证据和状态，不负责计算权威数值、补齐缺失数据或改变确定性结论。
 
-为消除原始规则中的歧义，v1.1 做出以下决定：
+为消除原始规则中的歧义，v1.2 做出以下决定：
 
 - 最终报告必须同时输出 Fundamental、Trend、Entry 三个 Score。
 - `SKHY Alpha` 拆为 `SKHY Sector Alpha` 和 `SKHY Market Alpha`，不再使用含义不明的合成字段。
 - 所有收益率字段使用百分点；例如 `1.25` 表示 `1.25%`，Relative Strength 的单位为 `pp`。
 - 所有价格、收益率和资金流计算使用十进制定点数；持久化不得以 `float64` 作为权威值。
 - `UNAVAILABLE` 是可用性，不是市场方向；Schema 使用 `availability` 表达，状态值在不可用时为 `null`。
+- Trend 的 SKHY Price Structure 描述 Hyperliquid 连续合约 UTC 日线，不是韩国现货正式收盘；形成中的日线和不足 50 根的历史不得进入计算。
 
 ## 2. 时间、市场状态与分析身份
 
@@ -53,6 +54,8 @@
 `REGULAR_SESSION` 使用 close-to-close 语义而不是 open-to-close，从而保留跳空对持仓和消息接受度的影响。
 
 `CONTRACT_24H` 使用同批当前 mark 作为共同终点。起点使用理论起点之前最近一根已完成 1 分钟 candle 的 close，偏差必须小于 60 秒；报告必须同时保存理论起点、实际起点和基准价格。任一标的缺失共同锚点时整批不可用，禁止插值、前向填充、使用 `prevDayPx`、使用过时的末根 candle 或补接第二数据源。
+
+SKHY Price Structure 使用 `xyz:SKHY` 的 UTC `1d` 连续合约 candle，日界线固定为 `00:00:00.000–23:59:59.999 UTC`。只有 close time 严格早于分析 `as_of` 的 candle 才算已完成；该日线不得写入传统市场的正式收盘字段，也不得用于声称韩国现货市场 OPEN/CLOSED。
 
 ### 2.4 稳定分析身份
 
@@ -260,7 +263,20 @@ Trend 只衡量趋势质量，与是否值得追价分开：
 
 Relative Strength 类组件映射为：`STRONG=100%`、`POSITIVE=75%`、`NEUTRAL=50%`、`WEAK=0%`。Cross-Market 映射为：看多 `CONFIRMED=100%`、`NEUTRAL=50%`、`DIVERGENCE=0%`、看空 `CONFIRMED=0%`。价格结构映射为 `ABOVE_SUPPORT=100%`、`RANGE=50%`、`BROKEN=0%`。Foreign Flow 映射为 `NET_BUY=100%`、`NEUTRAL=50%`、`NET_SELL=0%`。
 
-T-006 的实时路径当前具备前六个价格组件，名义可用权重为 8/10。系统按可用权重归一化 Trend Score 和组件贡献，并以确定性最大余数法分配一位小数舍入差，使可用组件之和严格等于总分；输出 `coverage_pct = 80`，且 Confidence 上限为 `MEDIUM`。尚未实现的 SKHY Price Structure 和 Hyperliquid 不提供的 Foreign Flow 均保持 `UNAVAILABLE`，不补零、不由价格推断，也不补接第二数据源。没有规则版本、phase、window type 和可用组件集合完全相同的上一结果时，Score direction 保持不可用。
+六个核心价格组件的名义可用权重为 8/10。SKHY Price Structure 可用时增加到 9/10；Foreign Flow 在没有真实资金流来源时保持 `UNAVAILABLE`。系统按可用权重归一化 Trend Score 和组件贡献，并以确定性最大余数法分配一位小数舍入差，使可用组件之和严格等于总分；`coverage_pct` 分别为 80 或 90，Confidence 上限均为 `MEDIUM`。缺失项不补零、不由价格推断，也不补接第二行情源。组件集合从 80% 变化到 90% 后，首次结果没有可比前值；只有规则版本、phase、window type 和可用组件集合完全相同的上一结果才能产生 Score direction。
+
+#### 8.3.1 SKHY Price Structure
+
+T-008 当前实现的 Trend Price Structure 使用至少 50 根连续且已完成的 `xyz:SKHY` UTC `1d` candle：
+
+- EMA20 和 EMA50 分别用最早 20/50 个 close 的简单均值作为种子，之后使用 `alpha = 2 / (N + 1)` 递推。
+- True Range 为 `max(high-low, abs(high-prev_close), abs(low-prev_close))`；第一根为 `high-low`。ATR14 以最早 14 个 True Range 的简单均值为种子，之后使用 Wilder 递推。
+- `support_low_20` 是评估日之前 20 根已完成日线的最低 low，不包含评估日，表达已经确认的先前支撑。
+- 权威计算使用精确十进制，Bundle 保存最后 close、EMA20、EMA50、ATR14、`support_low_20`、窗口、完成日线数、状态和证据引用。
+- `ABOVE_SUPPORT`：收盘 `>= EMA20` 且 `EMA20 >= EMA50`。
+- `BROKEN`：收盘严格低于 `min(EMA20, support_low_20) - 0.25 * ATR14`；恰好等于阈值仍为 `RANGE`。
+- 其他有效情况为 `RANGE`。
+- 已完成历史少于 50 根、存在间断/重复/乱序、载荷无效或来源失败时为 `UNAVAILABLE`，不得输出部分 EMA/ATR 或用当前 mark 补齐。
 
 ### 8.4 Entry Score
 
@@ -276,11 +292,8 @@ Entry 衡量当前交易位置，允许出现 `Trend UP + Entry DOWN`：
 
 用户持仓方向不是任何 Score 的输入。
 
-价格结构使用正式收盘、EMA20、EMA50、ATR14 和最近一个已确认 20 日 swing low：
+以下 Entry 规则仍要求正式交易时段数据，T-008 不实现：
 
-- `ABOVE_SUPPORT`：收盘 `>= EMA20` 且 `EMA20 >= EMA50`。
-- `BROKEN`：收盘低于 `min(EMA20, swing_low) - 0.25 * ATR14`。
-- 其他有效情况为 `RANGE`。
 - `HEALTHY_PULLBACK_WITH_BID`：Trend 不为下降，日内最低价进入 `EMA20 ± 0.5 * ATR14`，正式收盘重新站上 EMA20，且收盘位于当日振幅上半区。
 - `EXTENDED`：`abs(close - EMA20) / ATR14 >= 2.0`；达到该条件时延伸/回踩组件最高只能得 0.5 分。
 
@@ -318,7 +331,7 @@ WEAK → IMPROVING → CONFIRMED → STRONG → PERSISTENT_STRONG
 - 关键数据缺失或冲突：状态不变，streak 清零，Confidence 降低。
 - 发生迁移后对应 streak 清零，并保存 from、to、原因、session date 和规则版本。
 
-T-006 将分类与迁移实现为纯领域逻辑并回放冻结向量。Foreign Flow、Catalyst 或 Price Structure 等关键输入不可用时输出 `DATA_UNAVAILABLE`，保持状态、清零 streak，并把 Confidence 上限降为 `LOW`。T-007 以 Analysis Run 为聚合根原子保存 Bundle、可比 Score 和每个已评估 session 的 Memory 结果；同一规则版本与主资产的 Memory 历史必须按 session date 顺序追加，精确重放返回既有历史，冲突或乱序输入不得覆盖旧状态。
+T-006 将分类与迁移实现为纯领域逻辑并回放冻结向量。Foreign Flow、Catalyst 或 Price Structure 等关键输入不可用时输出 `DATA_UNAVAILABLE`，保持状态、清零 streak，并把 Confidence 上限降为 `LOW`。T-007 以 Analysis Run 为聚合根原子保存 Bundle、可比 Score 和每个已评估 session 的 Memory 结果；同一规则版本与主资产的 Memory 历史必须按 session date 顺序追加，精确重放返回既有历史，冲突或乱序输入不得覆盖旧状态。即使 T-008 的 Price Structure 已可用，只要 Foreign Flow 或 Catalyst 仍缺失，Memory 仍必须保持 `DATA_UNAVAILABLE`。
 
 ## 10. 跨市场确认链
 
@@ -383,6 +396,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 阈值、Score 权重、状态迁移、窗口语义或 Schema 必填字段发生变化时必须提升 `rule_version`，保存旧版本，并使用相同测试向量做差异回放。Prompt 文案变化只提升 `prompt_version`，不得静默改变本契约。
 
 - `global-analysis/1.1.0`：在 Hyperliquid 单一市场数据源约束下，引入版本化 trade.xyz 映射；核心指标基准改为 `SMH`、`XYZ100`、`SMSN` 和 `KR200`，并明确拒绝无变换的 `SOXL` 替代。
+- `global-analysis/1.2.0`：冻结 `xyz:SKHY` UTC 连续合约日线的 EMA20、EMA50、Wilder ATR14、先前 20 日支撑与历史充足性门，并把可用 Price Structure 接入 Analysis Bundle 和 Trend Score。
 
 ## 14. 验证资产
 
@@ -390,6 +404,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 - 场景向量：[`scenarios.json`](../testdata/global-analysis/v1/scenarios.json)
 - Relative Strength 边界：[`relative-strength-boundaries.json`](../testdata/global-analysis/v1/relative-strength-boundaries.json)
 - Memory 状态迁移：[`memory-state-transitions.json`](../testdata/global-analysis/v1/memory-state-transitions.json)
+- Price Structure 边界：[`price-structure-boundaries.json`](../testdata/global-analysis/v1/price-structure-boundaries.json)
 
 Schema 使用 JSON Schema Draft-07。仓库通过以下命令执行确定性语义检查与固定版本的 Schema 校验：
 

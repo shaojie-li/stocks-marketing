@@ -17,10 +17,11 @@ import (
 )
 
 type checkResult struct {
-	AsOf         time.Time               `json:"as_of"`
-	Observations []domain.Observation    `json:"observations"`
-	Indicators   domain.CoreIndicatorSet `json:"indicators"`
-	Trend        domain.TrendScore       `json:"trend"`
+	AsOf           time.Time               `json:"as_of"`
+	Observations   []domain.Observation    `json:"observations"`
+	Indicators     domain.CoreIndicatorSet `json:"indicators"`
+	PriceStructure domain.PriceStructure   `json:"price_structure"`
+	Trend          domain.TrendScore       `json:"trend"`
 }
 
 func main() {
@@ -60,13 +61,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	trend, err := domain.CalculateTrendScore(domain.TrendScoreInput{Indicators: indicators, Phase: "LIVE_CHECK"})
-	if err != nil {
-		return err
-	}
 	asOf, err := time.Parse(time.RFC3339Nano, observations[0].WindowEnd)
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(os.Stdout).Encode(checkResult{AsOf: asOf, Observations: observations, Indicators: indicators, Trend: trend})
+	priceStructure, priceStructureErr := client.SKHYPriceStructure(ctx, "xyz:SKHY", asOf)
+	if priceStructureErr != nil {
+		priceStructure = domain.UnavailablePriceStructure("xyz:SKHY", domain.PriceStructureReasonSourceError, 0, nil)
+	}
+	trend, err := domain.CalculateTrendScore(domain.TrendScoreInput{
+		Indicators: indicators, Phase: "LIVE_CHECK", PriceStructure: priceStructure.State,
+		PriceStructureRefs: priceStructure.EvidenceRefs,
+	})
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(checkResult{
+		AsOf: asOf, Observations: observations, Indicators: indicators, PriceStructure: priceStructure, Trend: trend,
+	})
 }

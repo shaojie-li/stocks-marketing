@@ -1,0 +1,32 @@
+{
+  "rule_version": "global-analysis/1.2.0",
+  "cases": [
+    {
+      "name": "ema_equality_is_above_support",
+      "close": "100",
+      "ema20": "100",
+      "ema50": "100",
+      "atr14": "4",
+      "support_low_20": "90",
+      "expected_state": "ABOVE_SUPPORT"
+    },
+    {
+      "name": "exact_broken_threshold_remains_range",
+      "close": "89",
+      "ema20": "100",
+      "ema50": "101",
+      "atr14": "4",
+      "support_low_20": "90",
+      "expected_state": "RANGE"
+    },
+    {
+      "name": "below_broken_threshold_is_broken",
+      "close": "88.99999999",
+      "ema20": "100",
+      "ema50": "101",
+      "atr14": "4",
+      "support_low_20": "90",
+      "expected_state": "BROKEN"
+    }
+  ]
+}

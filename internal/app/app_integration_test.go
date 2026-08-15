@@ -78,6 +78,41 @@ func TestSubmitAnalysisBundlePersistsComparableScoreAndMemoryHistory(t *testing.
 	}
 }
 
+func TestSubmitAnalysisBundleReplaysAndConflictsOnPriceStructureInput(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	if _, err := pool.Exec(ctx, "TRUNCATE memory_trend_history, analysis_scores, delivery_attempts, analysis_runs CASCADE"); err != nil {
+		t.Fatal(err)
+	}
+	cipher, err := config.NewCipher(bytes.Repeat([]byte{0x42}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	application, err := New(pool, cipher, http.DefaultClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := bundleInput("2026-08-15", "2026-08-14T06:00:00Z", "2026-08-15T06:00:00Z")
+	input.PriceStructure = domain.PriceStructure{
+		Availability: domain.AvailabilityAvailable, Symbol: "xyz:SKHY", Interval: "1d", CompletedBars: 50,
+		WindowStart: "2026-06-26T00:00:00Z", WindowEnd: "2026-08-14T23:59:59.999Z",
+		Close: "100", EMA20: "99", EMA50: "98", ATR14: "4", SupportLow20: "95",
+		State: domain.PriceStructureAboveSupport, EvidenceRefs: []string{"ev-skhy-daily"},
+	}
+	first, err := application.SubmitBundle(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := application.SubmitBundle(ctx, input)
+	if err != nil || replay.AnalysisRunID != first.AnalysisRunID || replay.ScoreID != first.ScoreID || replay.MemoryHistoryID != first.MemoryHistoryID {
+		t.Fatalf("Price Structure replay = %#v, %v; want %#v", replay, err, first)
+	}
+	conflict := input
+	conflict.PriceStructure.Close = "101"
+	if _, err := application.SubmitBundle(ctx, conflict); err == nil || !strings.Contains(err.Error(), "analysis identity conflicts") {
+		t.Fatalf("changed Price Structure conflict error = %v", err)
+	}
+}
+
 func TestSubmitAnalysisBundleSerializesConcurrentReplaysAndRejectsOutOfOrder(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	if _, err := pool.Exec(ctx, "TRUNCATE memory_trend_history, analysis_scores, delivery_attempts, analysis_runs CASCADE"); err != nil {

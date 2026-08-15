@@ -46,7 +46,7 @@ func TestBuildAnalysisBundleIsDeterministicAndKeepsUnavailableSignalsExplicit(t 
 	if third.Memory.SessionDate != "2026-08-15" {
 		t.Fatalf("civil session date shifted across timezone: %s", third.Memory.SessionDate)
 	}
-	if first.Identity.RuleVersion != "global-analysis/1.1.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
+	if first.Identity.RuleVersion != "global-analysis/1.2.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
 		t.Fatalf("stable identity is incomplete: %#v", first.Identity)
 	}
 	if first.Trend.Value != "9.4" || first.Trend.CoveragePct != 80 || first.Trend.ConfidenceMax != ConfidenceMedium || first.Trend.Direction != "" {
@@ -81,7 +81,7 @@ func TestBuildAnalysisBundleUsesComparableScoreAndPreviousMemory(t *testing.T) {
 	}
 	previousTrend.Value = "8.9"
 	previousMemory := &MemoryTrendTransition{
-		RuleVersion: "global-analysis/1.1.0", State: MemoryTrendImproving,
+		RuleVersion: "global-analysis/1.2.0", State: MemoryTrendImproving,
 		SupportiveStreak: 1, AdverseStreak: 1, SessionDate: "2026-08-14",
 	}
 	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
@@ -97,5 +97,49 @@ func TestBuildAnalysisBundleUsesComparableScoreAndPreviousMemory(t *testing.T) {
 	}
 	if bundle.Memory.PreviousState != MemoryTrendImproving || bundle.Memory.State != MemoryTrendImproving || bundle.Memory.SupportiveStreak != 0 || bundle.Memory.AdverseStreak != 0 {
 		t.Fatalf("Memory did not use persisted previous state: %#v", bundle.Memory)
+	}
+}
+
+func TestBuildAnalysisBundleFreezesAvailablePriceStructure(t *testing.T) {
+	input := AnalysisBundleInput{
+		Phase: "LIVE_CHECK", PrimaryAsset: "xyz:SKHY",
+		AsOf: "2026-08-15T06:00:00Z", AsOfBucket: "2026-08-15T06:00:00Z",
+		Observations: coreObservations(),
+		PriceStructure: PriceStructure{
+			Availability: AvailabilityAvailable, Symbol: "xyz:SKHY", Interval: "1d", CompletedBars: 50,
+			WindowStart: "2026-06-26T00:00:00Z", WindowEnd: "2026-08-14T23:59:59.999Z",
+			Close: "100.00000000", EMA20: "99.00000000", EMA50: "98.00000000", ATR14: "4.00000000",
+			SupportLow20: "95.00000000", State: PriceStructureAboveSupport, EvidenceRefs: []string{"ev-skhy-daily"},
+		},
+	}
+	available, err := BuildAnalysisBundle(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if available.PriceStructure.State != PriceStructureAboveSupport || available.Unavailable.PriceStructure != AvailabilityAvailable || available.Trend.CoveragePct != 90 || available.Trend.ConfidenceMax != ConfidenceMedium {
+		t.Fatalf("available Price Structure was not frozen into Bundle: %#v", available)
+	}
+	if available.MemoryDay.Classification != MemoryDayDataUnavailable || available.Memory.ConfidenceMax != ConfidenceLow {
+		t.Fatalf("Price Structure incorrectly filled Foreign Flow or Catalyst: %#v / %#v", available.MemoryDay, available.Memory)
+	}
+	equivalent := input
+	equivalent.PriceStructure.WindowStart = "2026-06-26T08:00:00+08:00"
+	equivalent.PriceStructure.WindowEnd = "2026-08-15T07:59:59.999+08:00"
+	equivalent.PriceStructure.Close = "100.0"
+	sameInstant, err := BuildAnalysisBundle(equivalent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sameInstant.InputHash != available.InputHash {
+		t.Fatal("Price Structure timestamp offset or decimal representation changed Bundle hash")
+	}
+
+	input.PriceStructure.State = PriceStructureRange
+	changed, err := BuildAnalysisBundle(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.InputHash == available.InputHash {
+		t.Fatal("Price Structure change did not change Bundle input hash")
 	}
 }

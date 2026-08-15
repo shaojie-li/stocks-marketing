@@ -105,3 +105,28 @@ T-003 的 `analysis_runs` 只按完整 report 哈希去重，能够支持最小 
 - 后续 AI 和 Discord 报告只需读取已冻结 Bundle，不再计算权威指标、Score 方向或 Memory 状态。
 - JSONB 保留完整可回放内容，关系型列承担幂等、排序和可比查询；新增查询字段时必须先证明真实消费路径，避免复制整份 Bundle 到多套表。
 - 当前 Price Structure 与 Foreign Flow 仍为 `UNAVAILABLE`。Trend 可以按 80% 覆盖率计算，Memory 记录 `DATA_UNAVAILABLE` 并保持前态；本决策不授权第二行情源或价格反推资金流。
+
+## D-005 Price Structure 使用 Hyperliquid 已完成 UTC 连续合约日线
+
+- 状态：Accepted
+- 日期：2026-08-15
+- 关联：[T-008](https://github.com/shaojie-li/stocks-marketing/issues/16)
+
+### 背景
+
+全局契约原本要求“正式收盘”和“已确认 20 日 swing low”，但 Hyperliquid `xyz:SKHY` 是连续合约，不能把其价格冒充韩国现货正式收盘；“已确认 swing low”也没有可执行定义。2026-08-15 的公共 live check 证明 `1d` candle 可读，但固定 `as_of` 前只有 37 根已完成日线，不足 EMA50 门槛。
+
+### 决策
+
+- Trend 的 SKHY Price Structure 明确描述 Hyperliquid `xyz:SKHY` UTC 连续合约日线，不写入传统市场 Regular Close，也不声称韩国现货市场处于 OPEN/CLOSED。
+- 只使用 close time 严格早于分析 `as_of` 的连续 `1d` candle；形成中、间断、重复、乱序或非法载荷均显式不可用。
+- 至少 50 根已完成日线后计算 EMA20、EMA50、Wilder ATR14，以及评估日前 20 根日线的最低 low。后者不包含评估日，避免把当日新低同时当成已经确认的支撑。
+- Price Structure 及其窗口、完成日线数、精确十进制派生值和响应哈希证据进入 Analysis Bundle 输入哈希。可用时 Trend 覆盖率为 90%，不足时保持 80%；两者 Confidence 上限均为 `MEDIUM`。
+- 规则版本提升为 `global-analysis/1.2.0`。不新增关系型 Price Structure 历史表，继续由不可变 Bundle 和现有 Score 历史承担审计与可比查询。
+
+### 影响
+
+- 当前真实历史不足时 Price Structure 仍为 `UNAVAILABLE / INSUFFICIENT_HISTORY`；达到 50 根后无需代码或配置变更即可自动启用。
+- 80% 与 90% 的 Trend 组件集合不可直接比较，组件集合变化后的首次结果不产生方向。
+- Foreign Flow 和 Catalyst 不因价格结构可用而被补齐；任一关键输入缺失时 Memory 仍为 `DATA_UNAVAILABLE`。
+- `HEALTHY_PULLBACK_WITH_BID` 等依赖正式交易时段的 Entry 规则不在本决策中实现。

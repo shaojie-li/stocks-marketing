@@ -1,0 +1,49 @@
+{
+  "captured_at": "2026-08-15T13:01:02Z",
+  "source": "Hyperliquid public Info API",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "request": {
+    "type": "candleSnapshot",
+    "req": {
+      "coin": "xyz:SKHY",
+      "interval": "1d",
+      "startTime": 0,
+      "endTime": 1786773600000
+    }
+  },
+  "as_of": "2026-08-15T06:00:00Z",
+  "response_sha256": "6429caaa7233e112c7fd5e3b09f7350c16a9babf5cf2b67e76d13ae47bdbe705",
+  "returned_count": 38,
+  "completed_before_as_of": 37,
+  "availability": "UNAVAILABLE",
+  "reason": "INSUFFICIENT_HISTORY",
+  "minimum_completed_bars": 50,
+  "first": {
+    "t": 1783555200000,
+    "T": 1783641599999,
+    "s": "xyz:SKHY",
+    "i": "1d",
+    "o": "161.0",
+    "c": "164.5",
+    "h": "167.37",
+    "l": "155.91",
+    "v": "189691.49",
+    "n": 29591
+  },
+  "last": {
+    "t": 1786752000000,
+    "T": 1786838399999,
+    "s": "xyz:SKHY",
+    "i": "1d",
+    "o": "166.38",
+    "c": "166.36",
+    "h": "166.62",
+    "l": "165.83",
+    "v": "20834.12",
+    "n": 7118
+  },
+  "notes": [
+    "最后一根 candle 的 close time 晚于 as_of，必须排除。",
+    "只保存必要投影与响应哈希，不保存或再分发完整 candle 数组。"
+  ]
+}
