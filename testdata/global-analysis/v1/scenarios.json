@@ -1,0 +1,140 @@
+{
+  "rule_version": "global-analysis/1.0.0",
+  "unit": "percentage_points",
+  "scenarios": [
+    {
+      "name": "bullish_catalyst_accepted",
+      "input": {
+        "expected_direction": "BULLISH",
+        "target_return_pct": "1.20",
+        "benchmark_return_pct": "0.60"
+      },
+      "expected": {
+        "directional_return_pct": "1.20",
+        "directional_alpha_pp": "0.60",
+        "catalyst": "ACCEPTED"
+      }
+    },
+    {
+      "name": "bullish_catalyst_rejected",
+      "input": {
+        "expected_direction": "BULLISH",
+        "target_return_pct": "-1.00",
+        "benchmark_return_pct": "-0.20"
+      },
+      "expected": {
+        "directional_return_pct": "-1.00",
+        "directional_alpha_pp": "-0.80",
+        "catalyst": "REJECTED"
+      }
+    },
+    {
+      "name": "cross_market_bullish_confirmation",
+      "input": {
+        "memory_rs_pp": "1.10",
+        "skhy_sector_alpha_pp": "0.80",
+        "us_session_date": "2026-08-14",
+        "kr_session_date": "2026-08-14",
+        "lag_hours": 10.5
+      },
+      "expected": {
+        "memory_rs": "STRONG",
+        "skhy_sector_alpha": "POSITIVE",
+        "cross_market": "CONFIRMED",
+        "direction": "BULLISH"
+      }
+    },
+    {
+      "name": "cross_market_divergence_and_catalyst_rejection",
+      "input": {
+        "active_bullish_memory_catalyst": true,
+        "memory_rs_pp": "1.40",
+        "skhy_sector_alpha_pp": "-1.10",
+        "skhy_market_alpha_pp": "-0.90",
+        "foreign_flow_direction": "NET_SELL"
+      },
+      "expected": {
+        "cross_market": "DIVERGENCE",
+        "catalyst": "REJECTED",
+        "entry_direction": "DOWN",
+        "first_break": 2
+      }
+    },
+    {
+      "name": "healthy_pullback_improves_entry_without_changing_trend",
+      "input": {
+        "previous_trend_score": 8.0,
+        "trend_score": 8.1,
+        "previous_entry_score": 4.5,
+        "entry_score": 6.5,
+        "price_structure": "ABOVE_SUPPORT",
+        "pullback_structure": "HEALTHY_PULLBACK_WITH_BID"
+      },
+      "expected": {
+        "trend_direction": "FLAT",
+        "entry_direction": "UP"
+      }
+    },
+    {
+      "name": "trend_strengthens_but_chasing_is_worse",
+      "input": {
+        "previous_trend_score": 7.5,
+        "trend_score": 8.5,
+        "previous_entry_score": 6.0,
+        "entry_score": 3.5,
+        "price_extension_atr": "2.80",
+        "crowding": "HIGH"
+      },
+      "expected": {
+        "trend_direction": "UP",
+        "entry_direction": "DOWN",
+        "best_structure": "PULLBACK_LONG"
+      }
+    },
+    {
+      "name": "missing_foreign_flow_reduces_confidence_not_score",
+      "input": {
+        "foreign_flow_quality": "UNAVAILABLE",
+        "trend_available_weight_pct": 90,
+        "other_trend_components_score": 8.0
+      },
+      "expected": {
+        "foreign_flow_direction": null,
+        "foreign_flow_component_value": null,
+        "trend_score_available": true,
+        "confidence_max": "MEDIUM"
+      }
+    },
+    {
+      "name": "equal_priority_price_conflict_blocks_indicator",
+      "input": {
+        "left_source_tier": "MARKET_API",
+        "left_change_pct_a": "1.20",
+        "left_change_pct_b": "1.80",
+        "conflict_resolved": false
+      },
+      "expected": {
+        "indicator_availability": "DATA_CONFLICT",
+        "indicator_value_pp": null,
+        "indicator_state": null,
+        "confidence": "LOW"
+      }
+    },
+    {
+      "name": "non_overlapping_sessions_are_explicit",
+      "input": {
+        "memory_rs_pp": "0.70",
+        "skhy_sector_alpha_pp": "0.60",
+        "us_session_date": "2026-08-14",
+        "kr_session_date": "2026-08-15",
+        "lag_hours": 14.0
+      },
+      "expected": {
+        "cross_market": "CONFIRMED",
+        "direction": "BULLISH",
+        "must_report_both_session_dates": true,
+        "must_not_claim_simultaneous_quotes": true
+      }
+    }
+  ]
+}

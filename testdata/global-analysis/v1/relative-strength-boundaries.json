@@ -1,0 +1,12 @@
+{
+  "rule_version": "global-analysis/1.0.0",
+  "cases": [
+    { "value_pp": "1.00", "expected": "STRONG" },
+    { "value_pp": "0.9999", "expected": "POSITIVE" },
+    { "value_pp": "0.25", "expected": "POSITIVE" },
+    { "value_pp": "0.2499", "expected": "NEUTRAL" },
+    { "value_pp": "0.00", "expected": "NEUTRAL" },
+    { "value_pp": "-0.2499", "expected": "NEUTRAL" },
+    { "value_pp": "-0.25", "expected": "WEAK" }
+  ]
+}
