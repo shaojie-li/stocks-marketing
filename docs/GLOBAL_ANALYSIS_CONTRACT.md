@@ -359,13 +359,15 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 - Relative Strength 边界：[`relative-strength-boundaries.json`](../testdata/global-analysis/v1/relative-strength-boundaries.json)
 - Memory 状态迁移：[`memory-state-transitions.json`](../testdata/global-analysis/v1/memory-state-transitions.json)
 
-Schema 使用 JSON Schema Draft-07。当前仓库尚未建立工程工具链，T-001 使用固定版本的临时验证工具执行：
+Schema 使用 JSON Schema Draft-07。仓库通过以下命令执行确定性语义检查与固定版本的 Schema 校验：
 
 ```bash
+python3 scripts/validate-analysis-contract.py
+
 npx --yes --package ajv-cli@5.0.0 --package ajv-formats@2.1.1 \
   ajv validate --strict=true --multiple-of-precision=2 -c ajv-formats \
   -s schemas/global-analysis-report.schema.json \
   -d testdata/global-analysis/v1/example-report.json
 ```
 
-`--multiple-of-precision=2` 只处理 JSON number 的二进制浮点校验误差，不改变一位小数的业务约束。T-003 应把同一验证固化为仓库脚本或测试，不依赖开发机全局工具。
+`--multiple-of-precision=2` 只处理 JSON number 的二进制浮点校验误差，不改变一位小数的业务约束。GitHub Actions 对每个 PR 和 `main` 推送执行相同检查；T-003 在建立 Go 工具链后继续复用这些测试向量。

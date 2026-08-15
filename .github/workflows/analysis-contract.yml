@@ -1,0 +1,41 @@
+name: Analysis contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Validate contract semantics
+        run: python3 scripts/validate-analysis-contract.py
+
+      - name: Validate report schema
+        run: >-
+          npx --yes
+          --package ajv-cli@5.0.0
+          --package ajv-formats@2.1.1
+          ajv validate
+          --strict=true
+          --multiple-of-precision=2
+          -c ajv-formats
+          -s schemas/global-analysis-report.schema.json
+          -d testdata/global-analysis/v1/example-report.json
