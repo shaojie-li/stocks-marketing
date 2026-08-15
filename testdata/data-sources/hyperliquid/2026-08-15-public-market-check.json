@@ -1,0 +1,46 @@
+{
+  "fixture_version": 1,
+  "source": "hyperliquid",
+  "capture_started_at": "2026-08-15T07:36:15.955764Z",
+  "capture_completed_at": "2026-08-15T07:36:43.503676Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "contains_secrets": false,
+  "capture_type": "sanitized_projection",
+  "perp_dexs": {
+    "http_status": 200,
+    "count": 10,
+    "names": ["xyz", "flx", "vntl", "hyna", "km", "abcd", "cash", "para", "mkts"],
+    "response_sha256": "50be9afaca07baec8a61f352b0d1313030488521a0837b46752d39026e40be47"
+  },
+  "selected_asset_contexts": [
+    {"asset": "xyz:NVDA", "mark_px": "224.5", "oracle_px": "224.52", "funding": "0.00000625", "open_interest": "738094.088"},
+    {"asset": "xyz:AMD", "mark_px": "513.85", "oracle_px": "513.95", "funding": "0.00000625", "open_interest": "22180.554"},
+    {"asset": "xyz:MU", "mark_px": "973.32", "oracle_px": "972.93", "funding": "0.0000501728", "open_interest": "142790.9"},
+    {"asset": "xyz:TSM", "mark_px": "424.25", "oracle_px": "424.29", "funding": "0.00000625", "open_interest": "23792.408"},
+    {"asset": "xyz:SKHY", "mark_px": "166.31", "oracle_px": "166.26", "funding": "0.0000243805", "open_interest": "1399435.78"}
+  ],
+  "zero_open_interest_duplicates": ["flx:NVDA", "km:NVDA", "km:MU", "cash:NVDA", "mkts:NVDA", "mkts:MU"],
+  "books": [
+    {"asset": "xyz:NVDA", "server_time_ms": 1786779403515, "best_bid": {"px": "224.48", "sz": "25.245"}, "best_ask": {"px": "224.5", "sz": "3.988"}, "response_sha256": "81ecfef24d2065c3d06a29c2aabd32f6ae72352a90936d99d48f700c26dcadb6"},
+    {"asset": "xyz:AMD", "server_time_ms": 1786779404118, "best_bid": {"px": "513.69", "sz": "3.264"}, "best_ask": {"px": "513.85", "sz": "5.425"}, "response_sha256": "c9ffe34c512ea20d28040c4c594e686bd911edc943fdc515f427f6e0dd95f9d9"},
+    {"asset": "xyz:MU", "server_time_ms": 1786779404579, "best_bid": {"px": "973.31", "sz": "0.226"}, "best_ask": {"px": "973.32", "sz": "2.23"}, "response_sha256": "d20f2de36ed55c7e3f01cbca228f778b4aef63540af057e1bff2e437473f9fe1"},
+    {"asset": "xyz:SKHY", "server_time_ms": 1786779405106, "best_bid": {"px": "166.31", "sz": "9.31"}, "best_ask": {"px": "166.32", "sz": "9.31"}, "response_sha256": "cd3784b990f09675bb0ce07bb1ce7715f0597a71c07df855c4580c51ca176228"}
+  ],
+  "websocket": {
+    "captured_at": "2026-08-15T07:40:12.554Z",
+    "url": "wss://api.hyperliquid.xyz/ws",
+    "asset": "xyz:SKHY",
+    "subscriptions": ["l2Book", "activeAssetCtx"],
+    "subscription_acknowledged": true,
+    "book_server_time_ms": 1786779612554,
+    "bid_levels": 20,
+    "ask_levels": 20,
+    "asset_context_fields": ["funding", "openInterest", "prevDayPx", "dayNtlVlm", "premium", "oraclePx", "markPx", "midPx", "impactPxs", "dayBaseVlm"]
+  },
+  "depth_50bps": [
+    {"asset": "xyz:NVDA", "server_time_ms": 1786779613631, "bid_usd": "283542.61", "ask_usd": "313733.83", "minimum_usd": "283542.61", "passes_100000_usd": true},
+    {"asset": "xyz:AMD", "server_time_ms": 1786779614167, "bid_usd": "65777.76", "ask_usd": "76369.01", "minimum_usd": "65777.76", "passes_100000_usd": false},
+    {"asset": "xyz:MU", "server_time_ms": 1786779614705, "bid_usd": "116800.39", "ask_usd": "110754.96", "minimum_usd": "110754.96", "passes_100000_usd": true},
+    {"asset": "xyz:SKHY", "server_time_ms": 1786779615243, "bid_usd": "308950.83", "ask_usd": "294394.43", "minimum_usd": "294394.43", "passes_100000_usd": true}
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "fixture_version": 1,
+  "source": "bls-public-data-api-v2",
+  "captured_at": "2026-08-15T07:36:47.085048Z",
+  "endpoint": "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+  "contains_secrets": false,
+  "capture_type": "sanitized_projection",
+  "http_status": 200,
+  "api_status": "REQUEST_SUCCEEDED",
+  "response_sha256": "17aaaacfc7d5a2ea9b9305bee1dba1be94284f150947b5efbf480b7390eee833",
+  "series": [
+    {
+      "series_id": "CUUR0000SA0",
+      "points": [
+        {"year": "2026", "period": "M07", "value": "333.918", "latest": true, "footnotes": []},
+        {"year": "2026", "period": "M06", "value": "333.952", "latest": false, "footnotes": []}
+      ]
+    },
+    {
+      "series_id": "CES0000000001",
+      "points": [
+        {"year": "2026", "period": "M07", "value": "158858", "latest": true, "footnotes": ["preliminary"]},
+        {"year": "2026", "period": "M06", "value": "158881", "latest": false, "footnotes": ["preliminary"]}
+      ]
+    }
+  ],
+  "contract_field_coverage": {
+    "actual": true,
+    "previous": true,
+    "consensus": false,
+    "revision_as_separate_field": false
+  }
+}
