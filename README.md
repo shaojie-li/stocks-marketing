@@ -20,9 +20,17 @@ Hyperliquid 同批当前 mark + 24h 起点 candle
 → PostgreSQL 幂等 Analysis Run
 → River 可靠任务
 → Discord Webhook
+
+通过 Eligibility Gate 的 8 个同窗口 Observation
+→ 确定性 Analysis Bundle
+→ PostgreSQL 原子保存 Analysis Run、可比 Trend Score 与 Memory session 历史
 ```
 
 缺少核心行情时返回 `SKIPPED_SOURCE_INCOMPLETE`，不会调用 AI 或发送残缺报告。
+
+Analysis Bundle 固定保存稳定分析身份、输入哈希、Observation、六个核心指标、Trend Score、Memory 结果和数据质量。精确重放返回同一组历史 ID；身份相同但输入不同会显式冲突。Trend 方向只查询规则版本、主资产、phase、window type 和可用组件集合完全相同的前值，Memory 只按 session date 顺序演进。
+
+当前 SKHY Price Structure 尚未计算，Foreign Flow 仍为 `UNAVAILABLE`。两项不会补零或由价格反推，因此价格路径的 Trend 覆盖率为 80%、Confidence 上限为 `MEDIUM`；Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
 
 ## 配置边界
 
@@ -91,6 +99,7 @@ go test -count=1 ./...
 go vet ./...
 go build ./...
 TEST_DATABASE_URL="$DATABASE_URL" ./scripts/check-vertical-slice.sh
+TEST_DATABASE_URL="$DATABASE_URL" go test -count=1 ./internal/storage/postgres
 ./scripts/generate.sh
 git diff --exit-code
 go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...

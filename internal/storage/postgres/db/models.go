@@ -9,12 +9,36 @@ import (
 )
 
 type AnalysisRun struct {
-	ID          int64              `json:"id"`
-	InputHash   []byte             `json:"input_hash"`
-	RuleVersion string             `json:"rule_version"`
-	Report      []byte             `json:"report"`
-	Indicators  []byte             `json:"indicators"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID           int64              `json:"id"`
+	InputHash    []byte             `json:"input_hash"`
+	RuleVersion  string             `json:"rule_version"`
+	Report       []byte             `json:"report"`
+	Indicators   []byte             `json:"indicators"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Phase        pgtype.Text        `json:"phase"`
+	PrimaryAsset pgtype.Text        `json:"primary_asset"`
+	WindowType   pgtype.Text        `json:"window_type"`
+	WindowStart  pgtype.Timestamptz `json:"window_start"`
+	WindowEnd    pgtype.Timestamptz `json:"window_end"`
+	AsOfBucket   pgtype.Timestamptz `json:"as_of_bucket"`
+	Bundle       []byte             `json:"bundle"`
+}
+
+type AnalysisScore struct {
+	ID            int64              `json:"id"`
+	AnalysisRunID int64              `json:"analysis_run_id"`
+	ScoreType     string             `json:"score_type"`
+	RuleVersion   string             `json:"rule_version"`
+	PrimaryAsset  string             `json:"primary_asset"`
+	Phase         string             `json:"phase"`
+	WindowType    string             `json:"window_type"`
+	ComponentSet  []string           `json:"component_set"`
+	Value         pgtype.Numeric     `json:"value"`
+	Direction     pgtype.Text        `json:"direction"`
+	CoveragePct   int16              `json:"coverage_pct"`
+	ConfidenceMax string             `json:"confidence_max"`
+	Payload       []byte             `json:"payload"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 type AppSetting struct {
@@ -35,4 +59,23 @@ type DeliveryAttempt struct {
 	LastError         pgtype.Text        `json:"last_error"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MemoryTrendHistory struct {
+	ID                int64              `json:"id"`
+	AnalysisRunID     int64              `json:"analysis_run_id"`
+	RuleVersion       string             `json:"rule_version"`
+	PrimaryAsset      string             `json:"primary_asset"`
+	SessionDate       pgtype.Date        `json:"session_date"`
+	PreviousState     string             `json:"previous_state"`
+	State             string             `json:"state"`
+	DayClassification string             `json:"day_classification"`
+	Transitioned      bool               `json:"transitioned"`
+	SupportiveStreak  int32              `json:"supportive_streak"`
+	AdverseStreak     int32              `json:"adverse_streak"`
+	Reason            string             `json:"reason"`
+	ConfidenceMax     string             `json:"confidence_max"`
+	EvidenceRefs      []byte             `json:"evidence_refs"`
+	Payload           []byte             `json:"payload"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }

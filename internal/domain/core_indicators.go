@@ -105,7 +105,7 @@ func CalculateCoreIndicators(observations []Observation) (CoreIndicatorSet, erro
 		returns[observation.Symbol] = value
 	}
 
-	result := CoreIndicatorSet{RuleVersion: "global-analysis/1.1.0", Relative: make(map[string]RelativeIndicator, len(indicatorPairs))}
+	result := CoreIndicatorSet{RuleVersion: GlobalAnalysisRuleVersion, Relative: make(map[string]RelativeIndicator, len(indicatorPairs))}
 	for name, pair := range indicatorPairs {
 		left, leftOK := bySymbol[pair[0]]
 		right, rightOK := bySymbol[pair[1]]
