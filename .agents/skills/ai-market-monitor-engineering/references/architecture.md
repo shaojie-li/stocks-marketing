@@ -95,4 +95,4 @@ docs/
 - 不抓取 `app.trade.xyz`。
 - 决策辅助阶段不连接钱包或私有交易接口。
 - 通过小型、供应商无关接口访问模型，并校验结构化输出 Schema。
-- 保证 Discord 投递可重试，保存 provider message ID 和每次投递尝试；Webhook token 不进入数据库或日志。
+- 保证 Discord 投递可重试，保存 provider message ID 和每次投递尝试；Webhook token、OpenAI Key 等敏感业务配置只以认证加密密文进入统一配置表，绝不进入日志。数据库连接和配置解密主密钥是仅有的部署启动凭据，不得回存同一数据库。

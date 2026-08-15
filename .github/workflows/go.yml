@@ -1,0 +1,60 @@
+name: Go
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: monitor_test
+          POSTGRES_USER: monitor
+          POSTGRES_PASSWORD: monitor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U monitor -d monitor_test"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://monitor:monitor@localhost:5432/monitor_test?sslmode=disable
+      TEST_DATABASE_URL: postgres://monitor:monitor@localhost:5432/monitor_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Generate SQL code
+        run: |
+          ./scripts/generate.sh
+          git diff --exit-code
+
+      - name: Run migrations and integration tests
+        run: ./scripts/check-vertical-slice.sh
+
+      - name: Run Go quality gates
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+          go build ./...
+
+      - name: Scan Go dependencies
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+      - name: Build container
+        run: docker build -t stock-market-monitoring:test .

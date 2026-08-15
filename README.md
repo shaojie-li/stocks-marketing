@@ -1,0 +1,80 @@
+# Stock Market Monitoring
+
+基于 Hyperliquid 公共行情、确定性规则和受约束 AI 解释的 Discord 决策辅助系统。当前不连接钱包、不读取持仓、不自动下单。
+
+## 当前垂直链路
+
+```text
+固定 Hyperliquid fixture
+→ 同窗口核心指标
+→ 符合 global-analysis/1.1.0 的结构化报告
+→ PostgreSQL 幂等 Analysis Run
+→ River 可靠任务
+→ Discord Webhook
+```
+
+缺少核心行情时返回 `SKIPPED_SOURCE_INCOMPLETE`，不会调用 AI 或发送残缺报告。
+
+## 配置边界
+
+所有业务配置都保存在 PostgreSQL 的单表 `app_settings`：
+
+- 普通配置保存为文本；
+- OpenAI Key、Discord Webhook 等敏感配置保存为 AES-256-GCM 密文；
+- 不使用本地密码 App，不提交 `.env`，不在日志中输出配置值；
+- 仅 `DATABASE_URL` 和 `SETTINGS_MASTER_KEY` 作为启动凭据从运行环境注入，因为应用连接和解密数据库前无法从数据库读取它们。
+
+`SETTINGS_MASTER_KEY` 必须是稳定的 32 字节随机值的 Base64 编码。丢失后，数据库内敏感配置无法解密。生产环境应由部署平台注入；不要把它保存回同一数据库或仓库。
+
+## 本地启动
+
+要求：Go 1.26.6、Docker 和 Docker Compose。
+
+```bash
+docker compose up -d --wait postgres
+export DATABASE_URL='postgres://monitor:monitor@localhost:54329/monitor_test?sslmode=disable'
+export SETTINGS_MASTER_KEY="$(openssl rand -base64 32)"
+./scripts/migrate.sh
+```
+
+开发库使用一次性固定凭据，只监听本机端口。不要把这组凭据用于生产。
+
+配置值统一从标准输入写入，敏感值不会出现在命令参数中：
+
+```bash
+go run ./cmd/settings set --secret openai.api_key
+go run ./cmd/settings set --secret discord.webhook_url
+go run ./cmd/settings set analysis.model
+```
+
+每条命令输入值后按 `Ctrl-D`。当前故意不提供“列出全部解密配置”的命令。
+
+启动 worker：
+
+```bash
+go run ./cmd/monitor
+```
+
+进程收到 `SIGINT` 或 `SIGTERM` 后停止接收任务，并在 15 秒边界内关闭 River 和数据库连接。
+
+## 验证
+
+```bash
+go test -count=1 ./...
+go vet ./...
+go build ./...
+TEST_DATABASE_URL="$DATABASE_URL" ./scripts/check-vertical-slice.sh
+./scripts/generate.sh
+git diff --exit-code
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+docker build -t stock-market-monitoring:test .
+```
+
+垂直切片使用真实 PostgreSQL、River 和本地 Discord 假服务，验证并发重复输入只产生一条 Analysis Run、一条业务投递和一次 HTTP 请求，同时检查 Webhook 在数据库中不是明文。
+
+## 关键文档
+
+- [全局分析契约](docs/GLOBAL_ANALYSIS_CONTRACT.md)
+- [Hyperliquid 数据源验证](docs/DATA_SOURCE_VALIDATION.md)
+- [架构决策](docs/DECISIONS.md)
+- [任务索引](docs/TASKS.md)
