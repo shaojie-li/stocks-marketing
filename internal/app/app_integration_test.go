@@ -113,6 +113,58 @@ func TestSubmitAnalysisBundleReplaysAndConflictsOnPriceStructureInput(t *testing
 	}
 }
 
+func TestSubmitAnalysisBundleReplaysAndConflictsOnCatalystInput(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	if _, err := pool.Exec(ctx, "TRUNCATE memory_trend_history, analysis_scores, delivery_attempts, analysis_runs CASCADE"); err != nil {
+		t.Fatal(err)
+	}
+	cipher, err := config.NewCipher(bytes.Repeat([]byte{0x42}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	application, err := New(pool, cipher, http.DefaultClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := bundleInput("2026-08-15", "2026-08-14T08:44:00Z", "2026-08-15T08:44:00Z")
+	input.Catalyst = appTestCatalyst(t, "98", "ev-price-v1")
+	first, err := application.SubmitBundle(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := application.SubmitBundle(ctx, input)
+	if err != nil || replay.AnalysisRunID != first.AnalysisRunID || replay.ScoreID != first.ScoreID || replay.MemoryHistoryID != first.MemoryHistoryID {
+		t.Fatalf("Catalyst replay = %#v, %v; want %#v", replay, err, first)
+	}
+	conflict := input
+	conflict.Catalyst = appTestCatalyst(t, "99", "ev-price-v2")
+	if _, err := application.SubmitBundle(ctx, conflict); err == nil || !strings.Contains(err.Error(), "analysis identity conflicts") {
+		t.Fatalf("changed Catalyst conflict error = %v", err)
+	}
+}
+
+func appTestCatalyst(t *testing.T, targetEnd, priceEvidence string) domain.CatalystEvaluation {
+	t.Helper()
+	event := domain.CatalystEvent{
+		SourceEventID: "20260814802986", PublishedAt: "2026-08-14T07:44:00Z", EventAt: "2026-08-14T07:44:00Z",
+		Source: "dart", SourceTier: "OFFICIAL", OriginalSource: "https://dart.fss.or.kr/api/link.jsp?rcpNo=20260814802986",
+		Category: domain.CatalystCategoryDerivativeTradingLoss, AffectedAssets: []string{"xyz:SKHY"},
+		Importance: "HIGH", FactStatus: "CONFIRMED", ExpectedDirection: domain.DirectionBearish,
+		EvidenceRefs: []string{"ev-dart"},
+	}
+	result, err := domain.EvaluateCatalyst(event, "2026-08-15T08:44:00Z", domain.CatalystPriceWindow{
+		TargetSymbol: "xyz:SKHY", BenchmarkSymbol: "xyz:SMSN",
+		WindowStart: "2026-08-14T07:43:59.999Z", WindowEnd: "2026-08-15T07:43:59.999Z",
+		TargetStartPrice: "100", TargetEndPrice: targetEnd,
+		BenchmarkStartPrice: "100", BenchmarkEndPrice: "99",
+		EvidenceRefs: []string{priceEvidence},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
 func TestSubmitAnalysisBundleSerializesConcurrentReplaysAndRejectsOutOfOrder(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	if _, err := pool.Exec(ctx, "TRUNCATE memory_trend_history, analysis_scores, delivery_attempts, analysis_runs CASCADE"); err != nil {

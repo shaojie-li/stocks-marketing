@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"time"
 
@@ -15,20 +16,27 @@ import (
 	"github.com/shaojie-li/stocks-marketing/internal/market"
 )
 
-const maxResponseBytes = 4 << 20
+const (
+	maxResponseBytes           = 4 << 20
+	hyperliquidRequestAttempts = 3
+)
 
 type Client struct {
 	httpClient *http.Client
 	infoURL    string
 	timeout    time.Duration
 	now        func() time.Time
+	retryDelay func(int) time.Duration
 }
 
 func NewClient(httpClient *http.Client, infoURL string, timeout time.Duration) *Client {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	return &Client{httpClient: httpClient, infoURL: infoURL, timeout: timeout, now: time.Now}
+	return &Client{
+		httpClient: httpClient, infoURL: infoURL, timeout: timeout, now: time.Now,
+		retryDelay: hyperliquidFullJitterDelay,
+	}
 }
 
 func (c *Client) Contract24HObservations(ctx context.Context, symbols []string) ([]domain.Observation, error) {
@@ -79,6 +87,55 @@ func (c *Client) Contract24HObservations(ctx context.Context, symbols []string) 
 		observations = append(observations, observation)
 	}
 	return observations, nil
+}
+
+func (c *Client) CatalystPriceWindow(ctx context.Context, eventAt, asOf time.Time, targetSymbol, benchmarkSymbol string) (domain.CatalystPriceWindow, error) {
+	if targetSymbol != "xyz:SKHY" || benchmarkSymbol != "xyz:SMSN" {
+		return domain.CatalystPriceWindow{}, errors.New("Catalyst requires xyz:SKHY and xyz:SMSN")
+	}
+	bounds, err := CatalystWindowBounds(eventAt, asOf)
+	if err != nil {
+		return domain.CatalystPriceWindow{}, err
+	}
+	type prices struct {
+		start string
+		end   string
+		ref   string
+	}
+	bySymbol := make(map[string]prices, 2)
+	for _, symbol := range []string{targetSymbol, benchmarkSymbol} {
+		var raw json.RawMessage
+		payload := map[string]any{
+			"type": "candleSnapshot",
+			"req": map[string]any{
+				"coin": symbol, "interval": "1m",
+				"startTime": bounds.RequestStart.UnixMilli(), "endTime": bounds.WindowEnd.UnixMilli(),
+			},
+		}
+		if err := c.post(ctx, payload, &raw); err != nil {
+			return domain.CatalystPriceWindow{}, fmt.Errorf("load CATALYST_24H candles for %s: %w", symbol, err)
+		}
+		candles, err := ParseCandles(raw, symbol, "1m")
+		if err != nil {
+			return domain.CatalystPriceWindow{}, fmt.Errorf("load CATALYST_24H candles for %s: %w", symbol, err)
+		}
+		if !candles[0].CloseTime.Equal(bounds.WindowStart) || !candles[len(candles)-1].CloseTime.Equal(bounds.WindowEnd) {
+			return domain.CatalystPriceWindow{}, fmt.Errorf("SKIPPED_SOURCE_INCOMPLETE: %s Catalyst candle anchors do not match", symbol)
+		}
+		digest := sha256.Sum256(raw)
+		bySymbol[symbol] = prices{
+			start: candles[0].Close, end: candles[len(candles)-1].Close,
+			ref: fmt.Sprintf("hyperliquid:candleSnapshot:%s:1m:sha256:%x", symbol, digest),
+		}
+	}
+	target, benchmark := bySymbol[targetSymbol], bySymbol[benchmarkSymbol]
+	return domain.CatalystPriceWindow{
+		TargetSymbol: targetSymbol, BenchmarkSymbol: benchmarkSymbol,
+		WindowStart: bounds.WindowStart.Format(time.RFC3339Nano), WindowEnd: bounds.WindowEnd.Format(time.RFC3339Nano),
+		TargetStartPrice: target.start, TargetEndPrice: target.end,
+		BenchmarkStartPrice: benchmark.start, BenchmarkEndPrice: benchmark.end,
+		EvidenceRefs: []string{target.ref, benchmark.ref},
+	}, nil
 }
 
 func (c *Client) SKHYPriceStructure(ctx context.Context, symbol string, asOf time.Time) (domain.PriceStructure, error) {
@@ -171,31 +228,75 @@ func (c *Client) post(ctx context.Context, payload any, result any) error {
 	if err != nil {
 		return err
 	}
+	var lastErr error
+	for attempt := 0; attempt < hyperliquidRequestAttempts; attempt++ {
+		retryable, err := c.postOnce(ctx, body, result)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if !retryable || attempt == hyperliquidRequestAttempts-1 {
+			return err
+		}
+		timer := time.NewTimer(c.retryDelay(attempt))
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return lastErr
+}
+
+func (c *Client) postOnce(ctx context.Context, body []byte, result any) (bool, error) {
 	requestCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	request, err := http.NewRequestWithContext(requestCtx, http.MethodPost, c.infoURL, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("create Hyperliquid request: %w", err)
+		return false, fmt.Errorf("create Hyperliquid request: %w", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("User-Agent", "stocks-marketing/1")
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return fmt.Errorf("call Hyperliquid info: %w", err)
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
+		return true, fmt.Errorf("call Hyperliquid info: %w", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-		return fmt.Errorf("Hyperliquid info returned HTTP %d", response.StatusCode)
+		retryable := retryableHTTPStatus(response.StatusCode)
+		return retryable, fmt.Errorf("Hyperliquid info returned HTTP %d", response.StatusCode)
 	}
 	decoder := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes))
 	if err := decoder.Decode(result); err != nil {
-		return fmt.Errorf("decode Hyperliquid response: %w", err)
+		return false, fmt.Errorf("decode Hyperliquid response: %w", err)
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return errors.New("Hyperliquid response contains trailing data")
+		return false, errors.New("Hyperliquid response contains trailing data")
 	}
-	return nil
+	return false, nil
+}
+
+func hyperliquidFullJitterDelay(attempt int) time.Duration {
+	maximum := time.Second * time.Duration(1<<attempt)
+	if maximum > 4*time.Second {
+		maximum = 4 * time.Second
+	}
+	return time.Duration(rand.Int64N(int64(maximum) + 1))
+}
+
+func retryableHTTPStatus(status int) bool {
+	switch status {
+	case http.StatusRequestTimeout, http.StatusTooManyRequests, http.StatusInternalServerError,
+		http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
 }
 
 func dexFor(symbols []string) string {

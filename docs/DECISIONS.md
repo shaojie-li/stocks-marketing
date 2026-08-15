@@ -157,3 +157,28 @@ KRX Data Marketplace 网页展示股票和衍生品投资者交易实绩，KRX �
 - 当前系统不会计算或展示伪 Foreign Flow，代价是 Trend 覆盖率暂时不能提升到 100%，Memory 也不会因该输入缺失而迁移。
 - 本结论不是断言 KRX 没有数据，而是确认当前项目没有同时满足字段覆盖、稳定自动化和用途授权的路径。
 - 若未来商业价值足以承担合同、费用和合规义务，必须先把许可作为产品决策处理，再评估工程实现；在此之前优先推进不依赖未授权数据的 M2 能力。
+
+## D-007 Catalyst 首个事实源使用 DART 公司 RSS
+
+- 状态：Accepted
+- 日期：2026-08-15
+- 关联：[T-010](https://github.com/shaojie-li/stocks-marketing/issues/20)
+
+### 背景
+
+全局契约已定义 Catalyst 价格接受阈值，但没有冻结可自动获取且方向可确定的官方事件源、事件范围和价格窗口。SK hynix Newsroom 虽提供 RSS，其现行 Terms 只允许非商业使用，并禁止 robot、spider 或其他自动设备监控或复制材料，不能作为后台生产来源。DART 官方公司 RSS 面向自动更新场景，公开提供上市公司最近 5 个营业日披露；2026-08-15 live check 已验证 SK hynix 披露及精确时间字段。
+
+### 决策
+
+- 首个 Catalyst 唯一事实源为 DART SK hynix 公司 RSS，corp code 固定为 `00164779`。SK hynix Newsroom、媒体、搜索、网页识别和 LLM 分类不作为回退。
+- 只识别报告名精确为 `파생상품거래손실발생` 的首次披露，映射为 `DERIVATIVE_TRADING_LOSS_OCCURRED / CONFIRMED / BEARISH`。其他报告不产生方向；更正、补充或撤回显式冲突。
+- `rcpNo` 是稳定事件 ID；`pubDate` 与 `dc:date` 必须一致并同时作为 published/event time。只保存必要元数据、响应哈希和派生结果，不保存披露正文或再分发原始 feed。
+- 价格继续只来自 Hyperliquid。目标 `xyz:SKHY` 与基准 `xyz:SMSN` 使用同一事件前分钟和同一 24 小时评估分钟；任一侧不完整则 Catalyst 不可用。
+- 事件选择、方向、精确十进制收益与 `ACCEPTED / NEUTRAL / REJECTED` 全部由 Go 领域逻辑计算，进入 Analysis Bundle 输入哈希。LLM 不参与权威判断。
+- 规则版本提升为 `global-analysis/1.3.0`。本切片不新增后台轮询、事件表、历史回补、Fundamental、Entry、AI 或 Discord 链路。
+
+### 影响
+
+- 系统能够审计一个真实官方损失披露的市场接受，但不声称覆盖全部公司 Catalyst；事件离开 DART 最近 5 个营业日窗口后，只读检查会返回没有最近事件。
+- Catalyst 可用不会改变 Trend Score。Foreign Flow 仍不可用，因此 Memory 保持 `DATA_UNAVAILABLE`、前态不变、streak 清零且 Confidence 上限为 `LOW`。
+- 新增下一种事件前，必须单独证明官方来源、自动化用途边界、精确方向语义、修订行为和可测试价格窗口，不能把任意新闻分类扩展进来。

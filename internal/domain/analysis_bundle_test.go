@@ -46,13 +46,13 @@ func TestBuildAnalysisBundleIsDeterministicAndKeepsUnavailableSignalsExplicit(t 
 	if third.Memory.SessionDate != "2026-08-15" {
 		t.Fatalf("civil session date shifted across timezone: %s", third.Memory.SessionDate)
 	}
-	if first.Identity.RuleVersion != "global-analysis/1.2.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
+	if first.Identity.RuleVersion != "global-analysis/1.3.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
 		t.Fatalf("stable identity is incomplete: %#v", first.Identity)
 	}
 	if first.Trend.Value != "9.4" || first.Trend.CoveragePct != 80 || first.Trend.ConfidenceMax != ConfidenceMedium || first.Trend.Direction != "" {
 		t.Fatalf("Trend Score = %#v, want first price-only 9.4/80/MEDIUM", first.Trend)
 	}
-	if first.Unavailable.PriceStructure != AvailabilityUnavailable || first.Unavailable.ForeignFlow != AvailabilityUnavailable {
+	if first.Unavailable.PriceStructure != AvailabilityUnavailable || first.Unavailable.ForeignFlow != AvailabilityUnavailable || first.Unavailable.Catalyst != AvailabilityUnavailable {
 		t.Fatalf("missing signals were not explicit: %#v", first.Unavailable)
 	}
 	if first.MemoryDay.Classification != MemoryDayDataUnavailable || first.Memory.State != MemoryTrendWeak || first.Memory.ConfidenceMax != ConfidenceLow {
@@ -81,7 +81,7 @@ func TestBuildAnalysisBundleUsesComparableScoreAndPreviousMemory(t *testing.T) {
 	}
 	previousTrend.Value = "8.9"
 	previousMemory := &MemoryTrendTransition{
-		RuleVersion: "global-analysis/1.2.0", State: MemoryTrendImproving,
+		RuleVersion: "global-analysis/1.3.0", State: MemoryTrendImproving,
 		SupportiveStreak: 1, AdverseStreak: 1, SessionDate: "2026-08-14",
 	}
 	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
@@ -141,5 +141,36 @@ func TestBuildAnalysisBundleFreezesAvailablePriceStructure(t *testing.T) {
 	}
 	if changed.InputHash == available.InputHash {
 		t.Fatal("Price Structure change did not change Bundle input hash")
+	}
+}
+
+func TestBuildAnalysisBundleFreezesCatalystIntoInputHash(t *testing.T) {
+	catalyst, err := EvaluateCatalyst(testCatalystEvent(), "2026-08-15T08:44:00Z", finalCatalystWindow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := AnalysisBundleInput{
+		Phase: "LIVE_CHECK", PrimaryAsset: "xyz:SKHY",
+		AsOf: "2026-08-15T08:44:00Z", AsOfBucket: "2026-08-15T08:44:00Z",
+		Observations: coreObservations(), Catalyst: catalyst,
+	}
+	for index := range input.Observations {
+		input.Observations[index].ObservedAt = input.AsOf
+		input.Observations[index].WindowEnd = input.AsOf
+	}
+	first, err := BuildAnalysisBundle(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Catalyst.State != CatalystAccepted || first.Unavailable.Catalyst != AvailabilityAvailable {
+		t.Fatalf("Catalyst was not frozen: %#v", first)
+	}
+	if first.MemoryDay.Classification != MemoryDayDataUnavailable {
+		t.Fatalf("Catalyst incorrectly filled Foreign Flow: %#v", first.MemoryDay)
+	}
+	input.Catalyst.State = CatalystNeutral
+	changed, err := BuildAnalysisBundle(input)
+	if err == nil || changed.InputHash != "" {
+		t.Fatal("internally inconsistent Catalyst was accepted")
 	}
 }

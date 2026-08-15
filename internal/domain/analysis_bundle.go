@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"slices"
 	"time"
 )
 
-const GlobalAnalysisRuleVersion = "global-analysis/1.2.0"
+const GlobalAnalysisRuleVersion = "global-analysis/1.3.0"
 
 type AnalysisIdentity struct {
 	RuleVersion  string `json:"rule_version"`
@@ -24,6 +25,7 @@ type AnalysisIdentity struct {
 type UnavailableSignals struct {
 	PriceStructure string `json:"skhy_price_structure"`
 	ForeignFlow    string `json:"skhy_foreign_flow"`
+	Catalyst       string `json:"catalyst"`
 }
 
 type AnalysisQuality struct {
@@ -39,6 +41,7 @@ type AnalysisBundle struct {
 	Observations   []Observation         `json:"observations"`
 	Indicators     CoreIndicatorSet      `json:"indicators"`
 	PriceStructure PriceStructure        `json:"price_structure"`
+	Catalyst       CatalystEvaluation    `json:"catalyst"`
 	Trend          TrendScore            `json:"trend"`
 	Unavailable    UnavailableSignals    `json:"unavailable"`
 	MemoryDay      MemoryDayResult       `json:"memory_day"`
@@ -53,6 +56,7 @@ type AnalysisBundleInput struct {
 	AsOfBucket     string
 	Observations   []Observation
 	PriceStructure PriceStructure
+	Catalyst       CatalystEvaluation
 	PreviousTrend  *TrendScore
 	PreviousMemory *MemoryTrendTransition
 }
@@ -116,6 +120,13 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	if err := normalizePriceStructure(&priceStructure, input.PrimaryAsset, asOf); err != nil {
 		return AnalysisBundle{}, err
 	}
+	catalyst := input.Catalyst
+	if catalyst.Availability == "" {
+		catalyst = UnavailableCatalyst(CatalystReasonNotProvided, CatalystEvent{})
+	}
+	if err := normalizeCatalystEvaluation(&catalyst, input.PrimaryAsset, asOf); err != nil {
+		return AnalysisBundle{}, err
+	}
 	trend, err := CalculateTrendScore(TrendScoreInput{
 		Indicators: indicators, Phase: input.Phase, PriceStructure: priceStructure.State,
 		PriceStructureRefs: priceStructure.EvidenceRefs, Previous: input.PreviousTrend,
@@ -124,7 +135,9 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 		return AnalysisBundle{}, err
 	}
 	memoryDay, err := ClassifyMemoryDay(MemoryDayInput{
-		Indicators: indicators, PriceStructure: priceStructure.State, PriceStructureRefs: priceStructure.EvidenceRefs,
+		Indicators: indicators, Catalyst: catalyst.State, CatalystRefs: catalyst.EvidenceRefs,
+		PriceStructure: priceStructure.State, PriceStructureRefs: priceStructure.EvidenceRefs,
+		DataConflict: catalyst.Availability == AvailabilityDataConflict,
 	})
 	if err != nil {
 		return AnalysisBundle{}, err
@@ -153,9 +166,10 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 		AsOf           string                 `json:"as_of"`
 		Observations   []Observation          `json:"observations"`
 		PriceStructure PriceStructure         `json:"price_structure"`
+		Catalyst       CatalystEvaluation     `json:"catalyst"`
 		PreviousTrend  *TrendScore            `json:"previous_trend,omitempty"`
 		PreviousMemory *MemoryTrendTransition `json:"previous_memory,omitempty"`
-	}{identity, input.AsOf, observations, priceStructure, input.PreviousTrend, input.PreviousMemory}
+	}{identity, input.AsOf, observations, priceStructure, catalyst, input.PreviousTrend, input.PreviousMemory}
 	canonical, err := json.Marshal(hashInput)
 	if err != nil {
 		return AnalysisBundle{}, errors.New("encode analysis bundle input")
@@ -163,11 +177,69 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	digest := sha256.Sum256(canonical)
 	return AnalysisBundle{
 		Identity: identity, AsOf: input.AsOf, InputHash: hex.EncodeToString(digest[:]), Observations: observations,
-		Indicators: indicators, PriceStructure: priceStructure, Trend: trend,
-		Unavailable: UnavailableSignals{PriceStructure: priceStructure.Availability, ForeignFlow: AvailabilityUnavailable},
-		MemoryDay:   memoryDay, Memory: memory,
+		Indicators: indicators, PriceStructure: priceStructure, Catalyst: catalyst, Trend: trend,
+		Unavailable: UnavailableSignals{
+			PriceStructure: priceStructure.Availability,
+			ForeignFlow:    AvailabilityUnavailable,
+			Catalyst:       catalyst.Availability,
+		},
+		MemoryDay: memoryDay, Memory: memory,
 		Quality: AnalysisQuality{DataFreshness: worstFreshness(observations), DataCompleteness: "MEDIUM", ConfidenceMax: ConfidenceLow},
 	}, nil
+}
+
+func normalizeCatalystEvaluation(catalyst *CatalystEvaluation, primaryAsset string, bundleAsOf time.Time) error {
+	if catalyst.RuleVersion != CatalystRuleVersion || catalyst.Reason == "" && catalyst.Availability != AvailabilityAvailable {
+		return errors.New("invalid Catalyst availability")
+	}
+	if catalyst.Availability == AvailabilityUnavailable || catalyst.Availability == AvailabilityDataConflict {
+		if catalyst.State != "" || catalyst.AsOf != "" || catalyst.Preliminary ||
+			catalyst.TargetReturnPct != "" || catalyst.BenchmarkReturnPct != "" ||
+			catalyst.DirectionalReturnPct != "" || catalyst.DirectionalAlphaPP != "" ||
+			!reflect.DeepEqual(catalyst.PriceWindow, CatalystPriceWindow{}) {
+			return errors.New("invalid unavailable Catalyst")
+		}
+		if reflect.DeepEqual(catalyst.Event, CatalystEvent{}) {
+			if len(catalyst.EvidenceRefs) != 0 {
+				return errors.New("invalid unavailable Catalyst evidence")
+			}
+			catalyst.EvidenceRefs = []string{}
+			return nil
+		}
+		event, eventAt, err := normalizeCatalystEvent(catalyst.Event)
+		if err != nil || eventAt.After(bundleAsOf) || event.AffectedAssets[0] != primaryAsset {
+			return errors.New("invalid unavailable Catalyst event")
+		}
+		evidence := slices.Clone(catalyst.EvidenceRefs)
+		slices.Sort(evidence)
+		if !slices.Equal(evidence, event.EvidenceRefs) {
+			return errors.New("invalid unavailable Catalyst evidence")
+		}
+		catalyst.Event = event
+		catalyst.EvidenceRefs = evidence
+		return nil
+	}
+	if catalyst.Availability != AvailabilityAvailable || catalyst.Reason != "" {
+		return errors.New("invalid available Catalyst")
+	}
+	recomputed, err := EvaluateCatalyst(catalyst.Event, catalyst.AsOf, catalyst.PriceWindow)
+	if err != nil {
+		return err
+	}
+	catalystAsOf, err := time.Parse(time.RFC3339Nano, recomputed.AsOf)
+	if err != nil || catalystAsOf.After(bundleAsOf) || recomputed.Event.AffectedAssets[0] != primaryAsset {
+		return errors.New("invalid Catalyst bundle context")
+	}
+	evidence := slices.Clone(catalyst.EvidenceRefs)
+	slices.Sort(evidence)
+	if catalyst.State != recomputed.State || catalyst.Preliminary != recomputed.Preliminary ||
+		catalyst.TargetReturnPct != recomputed.TargetReturnPct || catalyst.BenchmarkReturnPct != recomputed.BenchmarkReturnPct ||
+		catalyst.DirectionalReturnPct != recomputed.DirectionalReturnPct || catalyst.DirectionalAlphaPP != recomputed.DirectionalAlphaPP ||
+		!slices.Equal(evidence, recomputed.EvidenceRefs) {
+		return errors.New("inconsistent Catalyst evaluation")
+	}
+	*catalyst = recomputed
+	return nil
 }
 
 func normalizePriceStructure(priceStructure *PriceStructure, primaryAsset string, asOf time.Time) error {

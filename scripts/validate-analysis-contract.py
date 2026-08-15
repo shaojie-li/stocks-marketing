@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -13,8 +14,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "testdata" / "global-analysis" / "v1"
 DATA_SOURCE_FIXTURES = ROOT / "testdata" / "data-sources" / "hyperliquid"
+DART_FIXTURES = ROOT / "testdata" / "data-sources" / "dart"
 STATE_ORDER = ["WEAK", "IMPROVING", "CONFIRMED", "STRONG", "PERSISTENT_STRONG"]
-RULE_VERSION = "global-analysis/1.2.0"
+RULE_VERSION = "global-analysis/1.3.0"
 
 
 class ValidationError(Exception):
@@ -174,6 +176,24 @@ def validate_skhy_daily_live_fixture() -> None:
     require(fixture["last"]["T"] > request["endTime"], "SKHY 日线 fixture 必须证明形成中 candle 被排除")
 
 
+def validate_dart_live_fixture() -> None:
+    path = DART_FIXTURES / "t010-skhy-company-rss.xml"
+    try:
+        root = ET.parse(path).getroot()
+    except (OSError, ET.ParseError) as error:
+        raise ValidationError(f"无法读取 DART RSS fixture：{error}") from error
+    namespaces = {"dc": "http://purl.org/dc/elements/1.1/"}
+    items = root.findall("./channel/item")
+    selected = [item for item in items if item.findtext("title") == "(유가)SK하이닉스 - 파생상품거래손실발생"]
+    require(len(selected) == 1, "DART RSS fixture 必须包含唯一受支持披露")
+    item = selected[0]
+    link = item.findtext("link")
+    require(link == "https://dart.fss.or.kr/api/link.jsp?rcpNo=20260814802986", "DART RSS fixture rcpNo 或来源错误")
+    require(item.findtext("guid") == link, "DART RSS fixture guid 与 link 冲突")
+    require(item.findtext("dc:creator", namespaces=namespaces) == "SK하이닉스", "DART RSS fixture 公司错误")
+    require(item.findtext("dc:date", namespaces=namespaces) == "2026-08-14T07:44:00Z", "DART RSS fixture UTC 时间错误")
+
+
 def validate_price_structure_boundaries() -> None:
     fixture = load_json(FIXTURES / "price-structure-boundaries.json")
     require(fixture["rule_version"] == RULE_VERSION, "Price Structure 向量规则版本错误")
@@ -274,6 +294,7 @@ def main() -> int:
         validate_hyperliquid_failure_policy()
         validate_hyperliquid_live_fixture()
         validate_skhy_daily_live_fixture()
+        validate_dart_live_fixture()
         validate_relative_strength_boundaries()
         validate_price_structure_boundaries()
         validate_scenarios()

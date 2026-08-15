@@ -35,6 +35,8 @@ T-007 确定性 Analysis Bundle 与可比历史（DONE）
 T-008 Hyperliquid SKHY 日线价格结构与历史充足性门（DONE）
                                       ↓
 T-009 官方 Foreign Flow 覆盖与授权验证（DONE / NO-GO）
+                                      ↓
+T-010 DART 损失披露 Catalyst 的 24h 价格接受（IN PROGRESS）
 ```
 
 T-001 至 T-009 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径、可审计的同窗口指标、确定性的 Trend Score 和 Memory 状态迁移、不可变 Analysis Bundle 与可比历史，以及可在历史充足后自动启用的 SKHY 连续合约日线价格结构。T-009 对 KRX Foreign Flow 作出 `NO-GO` 决策：当前没有同时满足字段覆盖、稳定自动化和 Discord 输出授权的数据路径，因此不实施。
@@ -52,9 +54,11 @@ T-001 至 T-009 已完成，形成规则契约、Hyperliquid 数据边界、可�
 | M2 | T-007 | 组装确定性 Analysis Bundle 并持久化可比 Score 与 Memory 历史 | [#14](https://github.com/shaojie-li/stocks-marketing/issues/14) | `DONE` |
 | M2 | T-008 | 接入 Hyperliquid SKHY 日线价格结构及历史充足性门 | [#16](https://github.com/shaojie-li/stocks-marketing/issues/16) | `DONE` |
 | M2 | T-009 | 验证官方 Foreign Flow 数据覆盖与授权边界 | [#18](https://github.com/shaojie-li/stocks-marketing/issues/18) | `DONE / NO-GO` |
+| M2 | T-010 | 评估 DART 损失披露 Catalyst 的 24h 价格接受 | [#20](https://github.com/shaojie-li/stocks-marketing/issues/20) | `IN PROGRESS` |
 
 ## 5. 暂不进入关键路径
 
+- Foreign Flow 生产接入：当前按 [D-006](DECISIONS.md#d-006-当前不接入-krx-foreign-flow) 为 `NO-GO`；只有取得明确覆盖 SK Hynix 个股、KOSPI 市场、KOSPI 200 Futures、后台自动获取、派生计算、必要存储和 Discord 输出的书面数据许可后，才重新评审并创建实施 Issue；
 - 自动交易、钱包签名、仓位管理和私有交易接口；
 - Web 管理后台和移动 App；
 - Redis、Kafka、独立向量数据库、微服务和 Kubernetes；
