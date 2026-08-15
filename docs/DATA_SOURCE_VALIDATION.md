@@ -107,17 +107,27 @@ WebSocket 对 `xyz:SKHY` 的 `l2Book` 和 `activeAssetCtx` 订阅成功返回：
 - 未带 DEX 的 `NVDA` 请求返回 HTTP 200 和 JSON `null`；
 - 因此客户端必须同时校验 HTTP 状态、JSON 类型和非空 payload，不能把 200 等同于可用数据。
 
-## 8. 尚未完成
+## 8. Candle 窗口
+
+`candleSnapshot` 的现场结果：
+
+- NVDA、AMD、MU、SKHY 连续 8 天的 1 小时数据各返回 193 根，时间间隔零缺口，其中 56 根开盘时间位于 UTC 周末；
+- MU、SKHY 最近 25 小时的 1 分钟数据各返回 1501 根，时间间隔零缺口；
+- 1 分钟结果中最后一根仍在形成，只有 `T <= as_of` 的 candle 可以作为已完成窗口终值；
+- 不存在的合约返回 HTTP 500 和 `null`，不支持的 `7m` interval 返回 HTTP 422。
+
+结论：Hyperliquid 连续 candle 能提供阶段窗口的原始价格，但开盘、收盘、隔夜和周末是报告调度语义，不是底层现货 session。每个 phase 必须显式保存 `window_start`、`window_end`、`as_of` 和 candle 完成状态。
+
+## 9. 尚未完成
 
 - 429、超时和服务端错误的有限重试边界；
 - WebSocket 断线重连、订阅上限和异常关闭；
 - 空盘口、合约暂停、oracle stale 和 mark/oracle 偏离规则；
-- candle 窗口能否支持全部阶段的同窗口收益率；
 - 公开数据的持久化、展示与二次分发许可。
 
 这些项目完成并形成可重放探针后，T-002 才能关闭。
 
-## 9. 官方参考
+## 10. 官方参考
 
 - [Hyperliquid Info endpoint](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint)
 - [Hyperliquid Perpetuals API](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals)
