@@ -20,6 +20,7 @@ type checkResult struct {
 	AsOf         time.Time               `json:"as_of"`
 	Observations []domain.Observation    `json:"observations"`
 	Indicators   domain.CoreIndicatorSet `json:"indicators"`
+	Trend        domain.TrendScore       `json:"trend"`
 }
 
 func main() {
@@ -59,9 +60,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	trend, err := domain.CalculateTrendScore(domain.TrendScoreInput{Indicators: indicators, Phase: "LIVE_CHECK"})
+	if err != nil {
+		return err
+	}
 	asOf, err := time.Parse(time.RFC3339Nano, observations[0].WindowEnd)
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(os.Stdout).Encode(checkResult{AsOf: asOf, Observations: observations, Indicators: indicators})
+	return json.NewEncoder(os.Stdout).Encode(checkResult{AsOf: asOf, Observations: observations, Indicators: indicators, Trend: trend})
 }

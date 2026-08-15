@@ -260,6 +260,8 @@ Trend 只衡量趋势质量，与是否值得追价分开：
 
 Relative Strength 类组件映射为：`STRONG=100%`、`POSITIVE=75%`、`NEUTRAL=50%`、`WEAK=0%`。Cross-Market 映射为：看多 `CONFIRMED=100%`、`NEUTRAL=50%`、`DIVERGENCE=0%`、看空 `CONFIRMED=0%`。价格结构映射为 `ABOVE_SUPPORT=100%`、`RANGE=50%`、`BROKEN=0%`。Foreign Flow 映射为 `NET_BUY=100%`、`NEUTRAL=50%`、`NET_SELL=0%`。
 
+T-006 的实时路径当前具备前六个价格组件，名义可用权重为 8/10。系统按可用权重归一化 Trend Score 和组件贡献，并以确定性最大余数法分配一位小数舍入差，使可用组件之和严格等于总分；输出 `coverage_pct = 80`，且 Confidence 上限为 `MEDIUM`。尚未实现的 SKHY Price Structure 和 Hyperliquid 不提供的 Foreign Flow 均保持 `UNAVAILABLE`，不补零、不由价格推断，也不补接第二数据源。没有规则版本、phase、window type 和可用组件集合完全相同的上一结果时，Score direction 保持不可用。
+
 ### 8.4 Entry Score
 
 Entry 衡量当前交易位置，允许出现 `Trend UP + Entry DOWN`：
@@ -315,6 +317,8 @@ WEAK → IMPROVING → CONFIRMED → STRONG → PERSISTENT_STRONG
 - 休市：状态和 streak 均不变，不计为交易日。
 - 关键数据缺失或冲突：状态不变，streak 清零，Confidence 降低。
 - 发生迁移后对应 streak 清零，并保存 from、to、原因、session date 和规则版本。
+
+T-006 将分类与迁移实现为纯领域逻辑并回放冻结向量。Foreign Flow、Catalyst 或 Price Structure 等关键输入不可用时输出 `DATA_UNAVAILABLE`，保持状态、清零 streak，并把 Confidence 上限降为 `LOW`；历史持久化由后续 Analysis Bundle 任务接入，当前不建立无人消费的独立状态表。
 
 ## 10. 跨市场确认链
 
