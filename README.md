@@ -31,7 +31,7 @@ Hyperliquid 同批当前 mark + 24h 起点 candle
 
 Analysis Bundle 固定保存稳定分析身份、输入哈希、Observation、六个核心指标、Trend Score、Memory 结果和数据质量。精确重放返回同一组历史 ID；身份相同但输入不同会显式冲突。Trend 方向只查询规则版本、主资产、phase、window type 和可用组件集合完全相同的前值，Memory 只按 session date 顺序演进。
 
-SKHY Price Structure 只使用 Hyperliquid `xyz:SKHY` 已完成的 UTC `1d` candle。至少 50 根连续已完成日线时计算 EMA20、EMA50、ATR14 和评估日前 20 日支撑低点，并把 Trend 覆盖率从 80% 提升到 90%；历史不足、序列异常或来源失败时保持 `UNAVAILABLE`。2026-08-15 live check 只有 37 根已完成日线，所以当前真实结果仍为 `UNAVAILABLE`。Foreign Flow 也仍为 `UNAVAILABLE`，不会补零或由价格反推；Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
+SKHY Price Structure 只使用 Hyperliquid `xyz:SKHY` 已完成的 UTC `1d` candle。至少 50 根连续已完成日线时计算 EMA20、EMA50、ATR14 和评估日前 20 日支撑低点，并把 Trend 覆盖率从 80% 提升到 90%；历史不足、序列异常或来源失败时保持 `UNAVAILABLE`。2026-08-15 live check 只有 37 根已完成日线，所以当前真实结果仍为 `UNAVAILABLE`。Foreign Flow 的 KRX 可行性结论为 `NO-GO`：公开 API 不覆盖所需投资者分类，当前项目也没有允许后台派生计算与 Discord 输出的数据合同，因此不接入、不抓取网页私有接口，也不从价格反推。Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
 
 ## 配置边界
 

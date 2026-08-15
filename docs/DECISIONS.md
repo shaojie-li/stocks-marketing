@@ -130,3 +130,30 @@ T-003 的 `analysis_runs` 只按完整 report 哈希去重，能够支持最小 
 - 80% 与 90% 的 Trend 组件集合不可直接比较，组件集合变化后的首次结果不产生方向。
 - Foreign Flow 和 Catalyst 不因价格结构可用而被补齐；任一关键输入缺失时 Memory 仍为 `DATA_UNAVAILABLE`。
 - `HEALTHY_PULLBACK_WITH_BID` 等依赖正式交易时段的 Entry 规则不在本决策中实现。
+
+## D-006 当前不接入 KRX Foreign Flow
+
+- 状态：Accepted
+- 日期：2026-08-15
+- 关联：[T-009](https://github.com/shaojie-li/stocks-marketing/issues/18)
+
+### 背景
+
+全局契约需要分别保存 SK Hynix 个股、KOSPI 市场和 KOSPI 200 Futures 的外资净买卖，并用同一范围、同一交易日、同一口径的净买额和成交额计算 `flow_ratio_pct`。价格、成交量、OI 或持股量变化都不能替代真实投资者分类数据。
+
+KRX Data Marketplace 网页展示股票和衍生品投资者交易实绩，KRX 也出售期货投资者类型别日度交易数据，但公开 OPEN API 服务清单没有投资者类别净买卖接口。现行 OPEN API 条款只允许非商业用途并禁止向第三方提供数据；付费市场数据的非查询型加工和外部提供则需要单独合同、用途申报、审批和可能的费用。当前项目没有覆盖后台自动获取、派生分析和 Discord 输出的书面授权。
+
+### 决策
+
+- T-009 结论为 `NO-GO`，当前不接入 KRX 或其他来源的 Foreign Flow，不申请无关 API 密钥，不购买数据商品，也不调用未文档化网页接口。
+- SK Hynix 个股、KOSPI 市场、KOSPI 200 Futures 净买卖和外资 OI 变化全部保持 `UNAVAILABLE`；缺失不补零、不混用范围，也不由价格、成交量、funding、全市场 OI 或持股量推断。
+- Hyperliquid 继续是唯一价格行情源。`000660` 与 `xyz:SKHY` 只允许建立事实映射，韩国现货数据不得提供或覆盖 Hyperliquid 价格字段。
+- 不为不可用能力创建客户端、Schema、配置、任务、重试或凭据流程。Trend 继续按可用权重归一化，Memory 按既有契约保持 `DATA_UNAVAILABLE`。
+- 不用 AI 浏览器、截图识别或 LLM 网页分析绕过数据授权和确定性边界。用户手动提供的单次页面证据只能用于非权威解释，不能进入 Analysis Bundle、Trend Score、Memory 或生产历史。
+- 只有取得 KRX/Koscom 书面许可，且许可明确覆盖三个范围、目标字段、最终性/修订语义、后台自动获取、派生计算、必要存储和 Discord 输出，才允许创建新的可行性评审 Issue；不因“网页可见”或“商品可购买”自动解除本决策。
+
+### 影响
+
+- 当前系统不会计算或展示伪 Foreign Flow，代价是 Trend 覆盖率暂时不能提升到 100%，Memory 也不会因该输入缺失而迁移。
+- 本结论不是断言 KRX 没有数据，而是确认当前项目没有同时满足字段覆盖、稳定自动化和用途授权的路径。
+- 若未来商业价值足以承担合同、费用和合规义务，必须先把许可作为产品决策处理，再评估工程实现；在此之前优先推进不依赖未授权数据的 M2 能力。
