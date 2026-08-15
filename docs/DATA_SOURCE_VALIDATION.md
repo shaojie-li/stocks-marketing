@@ -1,7 +1,7 @@
-# Hyperliquid 市场数据能力验证
+# 市场与 Foreign Flow 数据能力验证
 
-状态：Frozen v1.1
-关联任务：[T-002](https://github.com/shaojie-li/stocks-marketing/issues/2)
+状态：Frozen v1.2
+关联任务：[T-002](https://github.com/shaojie-li/stocks-marketing/issues/2)、[T-009](https://github.com/shaojie-li/stocks-marketing/issues/18)
 最近验证：2026-08-15
 
 ## 1. 已冻结边界
@@ -160,6 +160,29 @@ Hyperliquid 官方当前支持 `1d` interval 且最多返回最近 5000 根 cand
 - trade.xyz Terms 会将 Interface 与第三方服务区分开，但未提供明确的原始市场数据再分发授权。因此 raw redistribution 标记为 `UNCONFIRMED`，在取得书面授权或法律复核前禁止。
 - 地域、受限主体及第三方服务条款仍由实际运营者负责核验；本结论是项目风险边界，不是法律意见。
 
+### 10.1 KRX Foreign Flow 可行性结论
+
+2026-08-15 按 T-009 的 `GO` / `NO-GO` 门复核 KRX 官方资料。结论为 `NO-GO`：KRX 网页和付费数据商品证明投资者分类数据客观存在，但当前公开 OPEN API 不覆盖所需投资者净买卖字段；免费 API 条款也不允许本项目默认进行 Discord 第三方输出。项目没有覆盖该用途的 KRX/Koscom 数据合同，因此不申请认证密钥、不调用未文档化网页接口，也不实施 Foreign Flow。
+
+| 范围 | 官方可见能力 | `flow_ratio_pct` 所需字段 | 自动化与最终性 | 当前结论 |
+|---|---|---|---|---|
+| SK Hynix 普通股 `000660` | Data Marketplace 提供股票投资者别交易实绩和个股视图，可见卖出、买入与净买入成交金额 | 网页能力表明外资净买额存在；公开 OPEN API 只列出有价证券日别交易信息，未列投资者类别，无法从一个获准接口证明同日同口径的分子与分母 | 股票统计页说明正则市场数据预计 15:45 反映、含盘后交易的最终数据预计 18:00 提供，但没有获准 API 字段区分 `PRELIMINARY` / `CONFIRMED` | `UNAVAILABLE` |
+| KOSPI 市场 | Data Marketplace 提供股票市场投资者别交易实绩 | 网页能力存在，但公开 OPEN API 没有市场投资者类别净买卖服务，无法证明可自动取得同口径外资净买额和市场成交额 | 未取得文档化 endpoint、字段规范及产品用途授权 | `UNAVAILABLE` |
+| KOSPI 200 Futures | Data Marketplace 提供衍生品投资者别交易实绩；数据商品页明确出售“期货投资者类型别日度交易实绩” | 付费商品可能覆盖外资当日净买卖，但公开 OPEN API 只列出期货日别交易信息，未列投资者类别；未取得商品字段规范与合同 | 未取得文档化、获准的日度接口；最终发布时间、修订规则和 Discord 派生输出授权均未确认 | `UNAVAILABLE` |
+| KOSPI 200 Futures OI 变化 | KRX 市场数据商品包含未平仓数量等参考信息 | 未证明可按外资类别取得 OI 变化；全市场 OI 不能替代外资仓位变化 | 净买卖与 OI 是不同指标，禁止合并或推断 | `UNAVAILABLE` |
+
+`000660` 是韩国现货 SK Hynix 普通股，`xyz:SKHY` 是 Hyperliquid 连续合约。即使未来取得 KRX 授权，前者也只能作为 Foreign Flow 非价格事实来源；不得提供、补齐或覆盖后者的任何价格、成交量、OI 或行情状态。
+
+合规阻断来自官方现行规则：
+
+- KRX OPEN API 需要注册、认证密钥、具体服务申请和管理员审批，密钥使用期为一年，每个密钥每日最多 10,000 次请求；公开服务清单没有投资者类别净买卖服务。
+- KRX OPEN API 只允许非商业用途，禁止向第三方提供所获信息，并要求使用结果的画面标明“韩国交易所统计信息”。定期 Discord 报告属于第三方系统化输出，不能在没有书面许可时默认视为允许。
+- KRX/Koscom 市场数据可以通过合同许可，但非查询型量化分析、加工指标和外部提供有独立申报、计费与审批要求。现有仓库没有该合同，数据商品“可以买”不等于当前项目“已经获准使用”。
+
+因此不执行 live check：没有文档化且获准的目标 endpoint 时，真实请求只能依赖无关 API 或未公开网页接口，既不能证明三类能力，也违反本任务的授权边界。未来只有在 KRX/Koscom 书面合同同时明确覆盖三个范围、后台自动获取、派生计算、必要存储和 Discord 输出后，才重新开启独立可行性评审；缺少任一项都保持 `UNAVAILABLE`。
+
+AI 浏览器或模型视觉识别不构成例外：定时让 AI 打开统计网页仍是自动化获取，不能替代数据许可；动态表格识别也不能提供稳定 Schema、最终状态和可重放计算。用户手动提供的单次截图或导出文件可以用于非权威解释，但必须标明人工来源，不得进入 Analysis Bundle、Trend Score、Memory 或生产历史。
+
 ## 11. 可重放验证
 
 公共只读探针只依赖 Python 标准库，不读取账户、地址、token 或 header：
@@ -198,3 +221,10 @@ T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid �
 - [trade.xyz Korea assets](https://docs.trade.xyz/asset-directory/korea)
 - [trade.xyz Equity indices](https://docs.trade.xyz/xyz-perps-specification/equity-indices)
 - [trade.xyz Terms of Use](https://trade.xyz/terms)
+- [KRX Data Marketplace](https://data.krx.co.kr/contents/MDC/MAIN/main/index.cmd?locale=ko_KR)
+- [KRX 投资者别净买入排名统计](https://data.krx.co.kr/contents/MDC/MDI/outerLoader/index.cmd?screenId=MDCSTAT024)
+- [KRX OPEN API 服务清单](https://openapi.krx.co.kr/contents/OPP/INFO/service/OPPINFO004.cmd)
+- [KRX OPEN API 使用方法](https://openapi.krx.co.kr/contents/OPP/INFO/OPPINFO003.jsp)
+- [KRX OPEN API 使用条款](https://openapi.krx.co.kr/contents/OPP/INFO/OPPINFO002.jsp)
+- [KRX 期货数据商品](https://data.krx.co.kr/contents/MDC/DATA/datasale/index.cmd?prodType=FF&viewNm=dataProdList)
+- [KRX/Koscom 市场数据使用政策](https://data.krx.co.kr/inc/datasale/Market%20Data%20Usage%20Polices_ko.pdf)
