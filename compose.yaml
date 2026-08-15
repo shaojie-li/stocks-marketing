@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: monitor_test
+      POSTGRES_USER: monitor
+      POSTGRES_PASSWORD: monitor
+    ports:
+      - "54329:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monitor -d monitor_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - monitor-postgres:/var/lib/postgresql
+
+  monitor:
+    profiles: ["app"]
+    build: .
+    environment:
+      DATABASE_URL: postgres://monitor:monitor@postgres:5432/monitor_test?sslmode=disable
+      SETTINGS_MASTER_KEY: ${SETTINGS_MASTER_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  monitor-postgres:
