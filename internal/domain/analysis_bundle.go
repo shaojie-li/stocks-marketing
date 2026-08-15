@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const GlobalAnalysisRuleVersion = "global-analysis/1.1.0"
+const GlobalAnalysisRuleVersion = "global-analysis/1.2.0"
 
 type AnalysisIdentity struct {
 	RuleVersion  string `json:"rule_version"`
@@ -33,16 +33,17 @@ type AnalysisQuality struct {
 }
 
 type AnalysisBundle struct {
-	Identity     AnalysisIdentity      `json:"identity"`
-	AsOf         string                `json:"as_of"`
-	InputHash    string                `json:"input_hash"`
-	Observations []Observation         `json:"observations"`
-	Indicators   CoreIndicatorSet      `json:"indicators"`
-	Trend        TrendScore            `json:"trend"`
-	Unavailable  UnavailableSignals    `json:"unavailable"`
-	MemoryDay    MemoryDayResult       `json:"memory_day"`
-	Memory       MemoryTrendTransition `json:"memory"`
-	Quality      AnalysisQuality       `json:"quality"`
+	Identity       AnalysisIdentity      `json:"identity"`
+	AsOf           string                `json:"as_of"`
+	InputHash      string                `json:"input_hash"`
+	Observations   []Observation         `json:"observations"`
+	Indicators     CoreIndicatorSet      `json:"indicators"`
+	PriceStructure PriceStructure        `json:"price_structure"`
+	Trend          TrendScore            `json:"trend"`
+	Unavailable    UnavailableSignals    `json:"unavailable"`
+	MemoryDay      MemoryDayResult       `json:"memory_day"`
+	Memory         MemoryTrendTransition `json:"memory"`
+	Quality        AnalysisQuality       `json:"quality"`
 }
 
 type AnalysisBundleInput struct {
@@ -51,6 +52,7 @@ type AnalysisBundleInput struct {
 	AsOf           string
 	AsOfBucket     string
 	Observations   []Observation
+	PriceStructure PriceStructure
 	PreviousTrend  *TrendScore
 	PreviousMemory *MemoryTrendTransition
 }
@@ -107,11 +109,23 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	if err != nil {
 		return AnalysisBundle{}, err
 	}
-	trend, err := CalculateTrendScore(TrendScoreInput{Indicators: indicators, Phase: input.Phase, Previous: input.PreviousTrend})
+	priceStructure := input.PriceStructure
+	if priceStructure.Availability == "" {
+		priceStructure = UnavailablePriceStructure(input.PrimaryAsset, PriceStructureReasonNotProvided, 0, nil)
+	}
+	if err := normalizePriceStructure(&priceStructure, input.PrimaryAsset, asOf); err != nil {
+		return AnalysisBundle{}, err
+	}
+	trend, err := CalculateTrendScore(TrendScoreInput{
+		Indicators: indicators, Phase: input.Phase, PriceStructure: priceStructure.State,
+		PriceStructureRefs: priceStructure.EvidenceRefs, Previous: input.PreviousTrend,
+	})
 	if err != nil {
 		return AnalysisBundle{}, err
 	}
-	memoryDay, err := ClassifyMemoryDay(MemoryDayInput{Indicators: indicators})
+	memoryDay, err := ClassifyMemoryDay(MemoryDayInput{
+		Indicators: indicators, PriceStructure: priceStructure.State, PriceStructureRefs: priceStructure.EvidenceRefs,
+	})
 	if err != nil {
 		return AnalysisBundle{}, err
 	}
@@ -138,9 +152,10 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 		Identity       AnalysisIdentity       `json:"identity"`
 		AsOf           string                 `json:"as_of"`
 		Observations   []Observation          `json:"observations"`
+		PriceStructure PriceStructure         `json:"price_structure"`
 		PreviousTrend  *TrendScore            `json:"previous_trend,omitempty"`
 		PreviousMemory *MemoryTrendTransition `json:"previous_memory,omitempty"`
-	}{identity, input.AsOf, observations, input.PreviousTrend, input.PreviousMemory}
+	}{identity, input.AsOf, observations, priceStructure, input.PreviousTrend, input.PreviousMemory}
 	canonical, err := json.Marshal(hashInput)
 	if err != nil {
 		return AnalysisBundle{}, errors.New("encode analysis bundle input")
@@ -148,11 +163,44 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	digest := sha256.Sum256(canonical)
 	return AnalysisBundle{
 		Identity: identity, AsOf: input.AsOf, InputHash: hex.EncodeToString(digest[:]), Observations: observations,
-		Indicators: indicators, Trend: trend,
-		Unavailable: UnavailableSignals{PriceStructure: AvailabilityUnavailable, ForeignFlow: AvailabilityUnavailable},
+		Indicators: indicators, PriceStructure: priceStructure, Trend: trend,
+		Unavailable: UnavailableSignals{PriceStructure: priceStructure.Availability, ForeignFlow: AvailabilityUnavailable},
 		MemoryDay:   memoryDay, Memory: memory,
 		Quality: AnalysisQuality{DataFreshness: worstFreshness(observations), DataCompleteness: "MEDIUM", ConfidenceMax: ConfidenceLow},
 	}, nil
+}
+
+func normalizePriceStructure(priceStructure *PriceStructure, primaryAsset string, asOf time.Time) error {
+	priceStructure.EvidenceRefs = slices.Clone(priceStructure.EvidenceRefs)
+	slices.Sort(priceStructure.EvidenceRefs)
+	if priceStructure.Availability == AvailabilityUnavailable {
+		if priceStructure.Symbol != primaryAsset || priceStructure.Interval != "1d" || priceStructure.CompletedBars < 0 || priceStructure.State != "" || priceStructure.Reason == "" ||
+			priceStructure.WindowStart != "" || priceStructure.WindowEnd != "" || priceStructure.Close != "" || priceStructure.EMA20 != "" || priceStructure.EMA50 != "" || priceStructure.ATR14 != "" || priceStructure.SupportLow20 != "" {
+			return errors.New("invalid unavailable Price Structure")
+		}
+		return nil
+	}
+	if priceStructure.Availability != AvailabilityAvailable || priceStructure.Reason != "" || priceStructure.Symbol != primaryAsset || priceStructure.Interval != "1d" || priceStructure.CompletedBars < 50 {
+		return errors.New("invalid available Price Structure")
+	}
+	if _, available, err := priceStructureFraction(priceStructure.State); err != nil || !available || validateEvidenceRefs(priceStructure.EvidenceRefs) != nil {
+		return errors.New("invalid available Price Structure")
+	}
+	windowStart, startErr := time.Parse(time.RFC3339Nano, priceStructure.WindowStart)
+	windowEnd, endErr := time.Parse(time.RFC3339Nano, priceStructure.WindowEnd)
+	if startErr != nil || endErr != nil || !windowStart.Before(windowEnd) || !windowEnd.Before(asOf) {
+		return errors.New("invalid Price Structure window")
+	}
+	priceStructure.WindowStart = windowStart.UTC().Format(time.RFC3339Nano)
+	priceStructure.WindowEnd = windowEnd.UTC().Format(time.RFC3339Nano)
+	for _, value := range []*string{&priceStructure.Close, &priceStructure.EMA20, &priceStructure.EMA50, &priceStructure.ATR14, &priceStructure.SupportLow20} {
+		parsed, err := parseDecimal(*value)
+		if err != nil || parsed.Sign() <= 0 {
+			return errors.New("invalid Price Structure decimal")
+		}
+		*value = parsed.FloatString(8)
+	}
+	return nil
 }
 
 func worstFreshness(observations []Observation) string {

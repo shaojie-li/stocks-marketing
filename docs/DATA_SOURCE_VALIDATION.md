@@ -135,6 +135,10 @@ T-005 在 2026-08-15 的真实复核发现，`xyz:SMH` 最新 1 分钟 candle �
 
 系统同时保存 `theoretical_start`、`window_start`、`window_end`、`baseline_price` 与 `baseline_at`，禁止插值、前向填充、使用 `prevDayPx`、使用过时末根 candle 或补接第二数据源。该窗口描述 Hyperliquid 连续合约，不代表美股或韩股正式现货交易时段。
 
+T-008 使用相同 `candleSnapshot` 读取 `xyz:SKHY` 的 `1d` 连续合约日线。2026-08-15 固定 `as_of = 2026-08-15T06:00:00Z` 的 live check 返回 38 根，其中只有 37 根 close time 严格早于 `as_of`；最后一根仍在形成，必须排除。该证据不足 EMA50 的 50 根门槛，所以真实 Price Structure 为 `UNAVAILABLE / INSUFFICIENT_HISTORY`，不是计算失败或中性信号。脱敏投影与响应哈希见 [`t008-skhy-daily-live-check.json`](../testdata/data-sources/hyperliquid/t008-skhy-daily-live-check.json)。
+
+Hyperliquid 官方当前支持 `1d` interval 且最多返回最近 5000 根 candle。实现从 epoch 起请求可用历史，只保存 Bundle 中的派生结构、必要窗口和响应哈希，不永久保存或再分发完整 candle 数组。日线自然累计到至少 50 根连续已完成记录后自动开始计算，无需补历史、切换来源或修改配置。
+
 ## 9. 失败与恢复边界
 
 冻结策略见 [`failure-policy-v1.json`](../testdata/data-sources/hyperliquid/failure-policy-v1.json)：
@@ -180,7 +184,7 @@ go run ./cmd/indicator-check
 
 ## 12. 结论
 
-T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid 映射；非核心 USDKRW、DXY 和美债收益率当前不可用，依赖它们的阶段停止处理而不补源。所有可用性均须在运行时重新发现和过 Gate，本次快照不构成永久保证。
+T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid 映射；非核心 USDKRW、DXY 和美债收益率当前不可用，依赖它们的阶段停止处理而不补源。T-008 已证明 SKHY 连续合约日线接口可用，但截至 2026-08-15 已完成历史仍少于 EMA50 门槛，Price Structure 必须暂时降级。所有可用性均须在运行时重新发现和过 Gate，本次快照不构成永久保证。
 
 ## 13. 官方参考
 

@@ -22,6 +22,20 @@ func TestParseCandlesPreservesFirstPartyDecimalStrings(t *testing.T) {
 	}
 }
 
+func TestParseCandlesAcceptsContinuousDailyHistory(t *testing.T) {
+	raw := []byte(`[
+		{"t":1783468800000,"T":1783555199999,"s":"xyz:SKHY","i":"1d","o":"100","c":"101","h":"102","l":"99","v":"10","n":1},
+		{"t":1783555200000,"T":1783641599999,"s":"xyz:SKHY","i":"1d","o":"101","c":"102","h":"103","l":"100","v":"11","n":2}
+	]`)
+	candles, err := ParseCandles(raw, "xyz:SKHY", "1d")
+	if err != nil {
+		t.Fatalf("parse daily candles: %v", err)
+	}
+	if len(candles) != 2 || candles[1].Close != "102" || candles[1].Interval != "1d" {
+		t.Fatalf("daily candles = %#v", candles)
+	}
+}
+
 func TestParseCandlesRejectsProtocolAndContinuityErrors(t *testing.T) {
 	valid := `[
 		{"t":60000,"T":119999,"s":"xyz:MU","i":"1m","o":"100","c":"101","h":"102","l":"99","v":"1.1","n":3},

@@ -127,17 +127,21 @@ func BuildContract24HObservation(candles []Candle, bounds WindowBounds, endPrice
 }
 
 func validateCandles(candles []Candle, expectedSymbol, expectedInterval string) error {
+	interval, ok := candleDuration(expectedInterval)
+	if !ok {
+		return fmt.Errorf("unsupported candle interval %q", expectedInterval)
+	}
 	for index, candle := range candles {
 		if candle.Symbol != expectedSymbol {
 			return fmt.Errorf("candle %d symbol %q does not match %q", index, candle.Symbol, expectedSymbol)
 		}
-		if candle.Interval != expectedInterval || expectedInterval != "1m" {
+		if candle.Interval != expectedInterval {
 			return fmt.Errorf("candle %d interval %q does not match %q", index, candle.Interval, expectedInterval)
 		}
-		if !candle.CloseTime.Equal(candle.OpenTime.Add(candleInterval - time.Millisecond)) {
+		if !candle.CloseTime.Equal(candle.OpenTime.Add(interval - time.Millisecond)) {
 			return fmt.Errorf("candle %d has invalid open/close time", index)
 		}
-		if index > 0 && !candle.OpenTime.Equal(candles[index-1].OpenTime.Add(candleInterval)) {
+		if index > 0 && !candle.OpenTime.Equal(candles[index-1].OpenTime.Add(interval)) {
 			return fmt.Errorf("candle %d is duplicate, out of order or separated by a gap", index)
 		}
 		values := []string{candle.Open, candle.Close, candle.High, candle.Low, candle.Volume}
@@ -156,4 +160,15 @@ func validateCandles(candles []Candle, expectedSymbol, expectedInterval string) 
 		}
 	}
 	return nil
+}
+
+func candleDuration(interval string) (time.Duration, bool) {
+	switch interval {
+	case "1m":
+		return time.Minute, true
+	case "1d":
+		return 24 * time.Hour, true
+	default:
+		return 0, false
+	}
 }

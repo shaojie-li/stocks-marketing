@@ -3,6 +3,7 @@ package hyperliquid
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -78,6 +79,40 @@ func (c *Client) Contract24HObservations(ctx context.Context, symbols []string) 
 		observations = append(observations, observation)
 	}
 	return observations, nil
+}
+
+func (c *Client) SKHYPriceStructure(ctx context.Context, symbol string, asOf time.Time) (domain.PriceStructure, error) {
+	if symbol != "xyz:SKHY" {
+		return domain.PriceStructure{}, errors.New("SKHY Price Structure requires xyz:SKHY")
+	}
+	asOf = asOf.UTC()
+	var raw json.RawMessage
+	payload := map[string]any{
+		"type": "candleSnapshot",
+		"req": map[string]any{
+			"coin": symbol, "interval": "1d", "startTime": int64(0), "endTime": asOf.UnixMilli(),
+		},
+	}
+	if err := c.post(ctx, payload, &raw); err != nil {
+		return domain.PriceStructure{}, fmt.Errorf("load SKHY daily candles: %w", err)
+	}
+	candles, err := ParseCandles(raw, symbol, "1d")
+	if err != nil {
+		return domain.PriceStructure{}, fmt.Errorf("load SKHY daily candles: %w", err)
+	}
+	bars := make([]domain.DailyPriceBar, len(candles))
+	for index, candle := range candles {
+		bars[index] = domain.DailyPriceBar{
+			Symbol: candle.Symbol, Interval: candle.Interval,
+			OpenTime: candle.OpenTime.Format(time.RFC3339Nano), CloseTime: candle.CloseTime.Format(time.RFC3339Nano),
+			Open: candle.Open, Close: candle.Close, High: candle.High, Low: candle.Low, Volume: candle.Volume,
+		}
+	}
+	digest := sha256.Sum256(raw)
+	evidenceRef := fmt.Sprintf("hyperliquid:candleSnapshot:%s:1d:sha256:%x", symbol, digest)
+	return domain.CalculatePriceStructure(domain.PriceStructureInput{
+		Symbol: symbol, AsOf: asOf.Format(time.RFC3339Nano), Bars: bars, EvidenceRefs: []string{evidenceRef},
+	}), nil
 }
 
 func (c *Client) Snapshot(ctx context.Context, symbols []string, generation uint64, receivedAt time.Time) ([]market.Snapshot, error) {

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "testdata" / "global-analysis" / "v1"
 DATA_SOURCE_FIXTURES = ROOT / "testdata" / "data-sources" / "hyperliquid"
 STATE_ORDER = ["WEAK", "IMPROVING", "CONFIRMED", "STRONG", "PERSISTENT_STRONG"]
-RULE_VERSION = "global-analysis/1.1.0"
+RULE_VERSION = "global-analysis/1.2.0"
 
 
 class ValidationError(Exception):
@@ -164,6 +164,27 @@ def validate_hyperliquid_live_fixture() -> None:
             require(not forbidden, f"live fixture 包含敏感字段：{sorted(forbidden)}")
 
 
+def validate_skhy_daily_live_fixture() -> None:
+    fixture = load_json(DATA_SOURCE_FIXTURES / "t008-skhy-daily-live-check.json")
+    request = fixture["request"]["req"]
+    require(request["coin"] == "xyz:SKHY" and request["interval"] == "1d", "SKHY 日线 live fixture 请求错误")
+    require(fixture["completed_before_as_of"] < fixture["minimum_completed_bars"], "SKHY 日线 fixture 不再表达历史不足")
+    require(fixture["availability"] == "UNAVAILABLE" and fixture["reason"] == "INSUFFICIENT_HISTORY", "SKHY 日线历史不足必须显式降级")
+    require(len(fixture["response_sha256"]) == 64, "SKHY 日线 fixture 缺少响应哈希")
+    require(fixture["last"]["T"] > request["endTime"], "SKHY 日线 fixture 必须证明形成中 candle 被排除")
+
+
+def validate_price_structure_boundaries() -> None:
+    fixture = load_json(FIXTURES / "price-structure-boundaries.json")
+    require(fixture["rule_version"] == RULE_VERSION, "Price Structure 向量规则版本错误")
+    expected = {
+        "ema_equality_is_above_support": "ABOVE_SUPPORT",
+        "exact_broken_threshold_remains_range": "RANGE",
+        "below_broken_threshold_is_broken": "BROKEN",
+    }
+    require({case["name"]: case["expected_state"] for case in fixture["cases"]} == expected, "Price Structure 边界向量不完整")
+
+
 def rs_state(value: float) -> str:
     if value >= 1.0:
         return "STRONG"
@@ -252,7 +273,9 @@ def main() -> int:
         validate_asset_map()
         validate_hyperliquid_failure_policy()
         validate_hyperliquid_live_fixture()
+        validate_skhy_daily_live_fixture()
         validate_relative_strength_boundaries()
+        validate_price_structure_boundaries()
         validate_scenarios()
         validate_memory_transitions()
         validate_markdown_links()

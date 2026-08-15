@@ -86,6 +86,48 @@ func TestClientContract24HObservationsFailsWithoutPartialResult(t *testing.T) {
 	}
 }
 
+func TestClientSKHYPriceStructureUsesDailySnapshotAndExcludesFormingCandle(t *testing.T) {
+	asOf := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Type string `json:"type"`
+			Req  struct {
+				Coin      string `json:"coin"`
+				Interval  string `json:"interval"`
+				StartTime int64  `json:"startTime"`
+				EndTime   int64  `json:"endTime"`
+			} `json:"req"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if request.Type != "candleSnapshot" || request.Req.Coin != "xyz:SKHY" || request.Req.Interval != "1d" || request.Req.StartTime != 0 || request.Req.EndTime != asOf.UnixMilli() {
+			t.Errorf("unexpected daily request: %#v", request)
+		}
+		bars := make([]map[string]any, 0, 51)
+		start := asOf.Truncate(24*time.Hour).AddDate(0, 0, -50)
+		for index := 0; index < 51; index++ {
+			openTime := start.AddDate(0, 0, index)
+			bars = append(bars, map[string]any{
+				"t": openTime.UnixMilli(), "T": openTime.Add(24*time.Hour - time.Millisecond).UnixMilli(),
+				"s": "xyz:SKHY", "i": "1d", "o": "100", "c": "100", "h": "102", "l": "98", "v": "1", "n": 1,
+			})
+		}
+		_ = json.NewEncoder(w).Encode(bars)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.Client(), server.URL, 2*time.Second)
+	client.now = func() time.Time { return asOf }
+	result, err := client.SKHYPriceStructure(context.Background(), "xyz:SKHY", asOf)
+	if err != nil {
+		t.Fatalf("load SKHY Price Structure: %v", err)
+	}
+	if result.Availability != "AVAILABLE" || result.CompletedBars != 50 || result.State != "ABOVE_SUPPORT" || len(result.EvidenceRefs) != 1 {
+		t.Fatalf("SKHY Price Structure = %#v", result)
+	}
+}
+
 func startCandlePayload(symbol string, bounds WindowBounds, closePrice string) []map[string]any {
 	return []map[string]any{{
 		"t": bounds.RequestStart.UnixMilli(), "T": bounds.StartClose.UnixMilli(),
