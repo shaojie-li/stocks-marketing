@@ -1,0 +1,35 @@
+{
+  "rule_version": "global-analysis/1.0.0",
+  "cases": [
+    {
+      "name": "weak_first_supportive_day_does_not_upgrade",
+      "input": { "state": "WEAK", "day": "SUPPORTIVE", "supportive_streak_before": 0 },
+      "expected": { "state": "WEAK", "supportive_streak_after": 1, "transitioned": false }
+    },
+    {
+      "name": "weak_second_supportive_day_upgrades_one_level",
+      "input": { "state": "WEAK", "day": "SUPPORTIVE", "supportive_streak_before": 1 },
+      "expected": { "state": "IMPROVING", "supportive_streak_after": 0, "transitioned": true }
+    },
+    {
+      "name": "confirmed_second_adverse_day_downgrades_one_level",
+      "input": { "state": "CONFIRMED", "day": "ADVERSE", "adverse_streak_before": 1 },
+      "expected": { "state": "IMPROVING", "adverse_streak_after": 0, "transitioned": true }
+    },
+    {
+      "name": "hard_failure_downgrades_only_one_level",
+      "input": { "state": "PERSISTENT_STRONG", "day": "HARD_FAILURE" },
+      "expected": { "state": "STRONG", "transitioned": true }
+    },
+    {
+      "name": "market_closed_preserves_state_and_streak",
+      "input": { "state": "STRONG", "day": "MARKET_CLOSED", "supportive_streak_before": 3 },
+      "expected": { "state": "STRONG", "supportive_streak_after": 3, "transitioned": false }
+    },
+    {
+      "name": "missing_data_preserves_state_but_breaks_streak",
+      "input": { "state": "STRONG", "day": "DATA_UNAVAILABLE", "supportive_streak_before": 3 },
+      "expected": { "state": "STRONG", "supportive_streak_after": 0, "adverse_streak_after": 0, "transitioned": false, "confidence_max": "LOW" }
+    }
+  ]
+}
