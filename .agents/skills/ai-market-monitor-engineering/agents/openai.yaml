@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI 市场监控工程规范"
+  short_description: "统一约束项目架构、Go 工程实践、务实 TDD 流程与质量门禁"
+  default_prompt: "使用 $ai-market-monitor-engineering 按项目架构、TDD 流程和质量门禁完成这项变更。"

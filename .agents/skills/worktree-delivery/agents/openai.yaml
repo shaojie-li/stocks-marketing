@@ -1,0 +1,6 @@
+interface:
+  display_name: "Worktree交付"
+  short_description: "从 worktree 实现并交付到 main"
+  default_prompt: "使用 $worktree-delivery 从 origin/main 创建独立 worktree，完成实现、验证、PR 合并和清理。"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,7 @@
+interface:
+  display_name: "仓库任务状态核验"
+  short_description: "核验 Git、Issue、PR 与 CI 交付状态"
+  default_prompt: "使用 $repo-task-state 核验当前仓库和任务交付状态。"
+
+policy:
+  allow_implicit_invocation: true

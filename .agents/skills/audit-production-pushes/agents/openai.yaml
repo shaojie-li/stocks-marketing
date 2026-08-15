@@ -1,0 +1,4 @@
+interface:
+  display_name: "审计生产推送"
+  short_description: "只读查询并诊断最近生产新闻推送、重复投递和分析失败"
+  default_prompt: "使用 $audit-production-pushes 查询并分析最近 10 条生产新闻推送。"
