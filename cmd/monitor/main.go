@@ -14,6 +14,8 @@ import (
 
 	"github.com/shaojie-li/stocks-marketing/internal/app"
 	"github.com/shaojie-li/stocks-marketing/internal/config"
+	"github.com/shaojie-li/stocks-marketing/internal/market"
+	"github.com/shaojie-li/stocks-marketing/internal/market/hyperliquid"
 )
 
 func main() {
@@ -53,11 +55,26 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	marketConfig, err := hyperliquid.LoadConfig(ctx, application.Settings())
+	if err != nil {
+		return fmt.Errorf("load market configuration: %w", err)
+	}
 	if err := application.Start(ctx); err != nil {
 		return fmt.Errorf("start workers: %w", err)
 	}
+	marketState := market.NewState(marketConfig.Assets, marketConfig.StaleAfter)
+	marketFeed := hyperliquid.NewFeed(marketConfig, marketState, nil, logger)
+	feedStopped := make(chan error, 1)
+	go func() { feedStopped <- marketFeed.Run(ctx) }()
 	logger.Info("monitor started")
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case err := <-feedStopped:
+		if err != nil {
+			return fmt.Errorf("market feed stopped: %w", err)
+		}
+		return errors.New("market feed stopped unexpectedly")
+	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := application.Stop(shutdownCtx); err != nil {

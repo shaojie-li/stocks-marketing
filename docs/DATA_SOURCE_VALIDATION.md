@@ -1,6 +1,6 @@
 # Hyperliquid 市场数据能力验证
 
-状态：Frozen v1.0
+状态：Frozen v1.1
 关联任务：[T-002](https://github.com/shaojie-li/stocks-marketing/issues/2)
 最近验证：2026-08-15
 
@@ -159,6 +159,16 @@ WebSocket 对 `xyz:SKHY` 的 `l2Book` 和 `activeAssetCtx` 订阅成功返回：
 ```bash
 python3 scripts/probe-hyperliquid.py > /tmp/hyperliquid-probe.json
 python3 scripts/validate-analysis-contract.py
+```
+
+T-004 增加 Go 运行时验证：REST 的 metadata/context 只按同一响应的数组下标配对并校验等长，数值保留原始十进制字符串；初始快照整批原子写入内存。WebSocket 断线时 Gate 立即关闭，必须重新取得 REST 快照以及每个标的的 `l2Book`、`activeAssetCtx` 订阅确认后才恢复。
+
+快照的 `price` 使用 Hyperliquid `markPx`；`change_pct = (markPx - prevDayPx) / prevDayPx × 100`，以精确十进制计算并保留 8 位小数。`market_status` 固定描述合约场所为 `CONTINUOUS`，不能据此声称美韩底层现货市场处于 OPEN。
+
+行为配置只从 `app_settings` 读取：端点、关注标的、请求超时、5 秒 freshness、重连上下限。可执行以下只读现场检查：
+
+```bash
+go run ./cmd/market-check
 ```
 
 探针实时复核版本化映射、退市、OI、mark/oracle、双边盘口和 OI cap。429、超时、断线与 stale 的降级策略由确定性 fixture 校验；不以破坏公共服务或等待真实故障作为验收手段。

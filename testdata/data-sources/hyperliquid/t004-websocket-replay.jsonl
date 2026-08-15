@@ -1,0 +1,4 @@
+{"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"type":"l2Book","coin":"xyz:SKHY"}}}
+{"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"type":"activeAssetCtx","coin":"xyz:SKHY"}}}
+{"channel":"l2Book","data":{"coin":"xyz:SKHY","time":1786788513827,"levels":[[{"px":"166.18","sz":"7.82","n":3}],[{"px":"166.19","sz":"10.66","n":2}]]}}
+{"channel":"activeAssetCtx","data":{"coin":"xyz:SKHY","ctx":{"funding":"0.0000001021","openInterest":"1399928.0799999998","prevDayPx":"167.42","dayNtlVlm":"84367987.3520999253","oraclePx":"166.22","markPx":"166.18","midPx":"166.185"}}}

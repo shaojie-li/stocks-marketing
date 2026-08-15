@@ -2,10 +2,14 @@
 
 基于 Hyperliquid 公共行情、确定性规则和受约束 AI 解释的 Discord 决策辅助系统。当前不连接钱包、不读取持仓、不自动下单。
 
-## 当前垂直链路
+## 当前链路
 
 ```text
-固定 Hyperliquid fixture
+Hyperliquid REST 初始快照 + WebSocket 实时更新
+→ Eligibility Gate（完整性、时间戳、双边盘口、OI、断线恢复）
+→ 并发安全的内存行情快照
+
+固定分析 fixture
 → 同窗口核心指标
 → 符合 global-analysis/1.1.0 的结构化报告
 → PostgreSQL 幂等 Analysis Run
@@ -54,6 +58,16 @@ go run ./cmd/settings set analysis.model
 ```bash
 go run ./cmd/monitor
 ```
+
+`monitor` 启动时从 `app_settings` 读取 Hyperliquid 端点、关注标的、超时、freshness 和重连边界。断线后会先关闭数据门，完成 REST 重同步和全部订阅确认后才恢复；逐笔行情仅驻留内存。
+
+验证真实公共行情快路径（只读、无需钱包或交易账户）：
+
+```bash
+go run ./cmd/market-check
+```
+
+命令输出每个标的的 `price/change_pct/timestamp/market_status/source`、必要盘口投影和 Eligibility 结果，不输出配置值或完整订单簿。
 
 进程收到 `SIGINT` 或 `SIGTERM` 后停止接收任务，并在 15 秒边界内关闭 River 和数据库连接。
 
