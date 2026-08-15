@@ -209,7 +209,7 @@ func AdvanceMemoryTrend(input MemoryTransitionInput) (MemoryTrendTransition, err
 		}
 	}
 	result := MemoryTrendTransition{
-		RuleVersion: "global-analysis/1.1.0", PreviousState: input.State, State: input.State,
+		RuleVersion: GlobalAnalysisRuleVersion, PreviousState: input.State, State: input.State,
 		Day: input.Day, SupportiveStreak: input.SupportiveStreak, AdverseStreak: input.AdverseStreak,
 		SessionDate: input.SessionDate, ConfidenceMax: ConfidenceHigh, EvidenceRefs: input.EvidenceRefs,
 	}

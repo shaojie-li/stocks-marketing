@@ -318,7 +318,7 @@ WEAK → IMPROVING → CONFIRMED → STRONG → PERSISTENT_STRONG
 - 关键数据缺失或冲突：状态不变，streak 清零，Confidence 降低。
 - 发生迁移后对应 streak 清零，并保存 from、to、原因、session date 和规则版本。
 
-T-006 将分类与迁移实现为纯领域逻辑并回放冻结向量。Foreign Flow、Catalyst 或 Price Structure 等关键输入不可用时输出 `DATA_UNAVAILABLE`，保持状态、清零 streak，并把 Confidence 上限降为 `LOW`；历史持久化由后续 Analysis Bundle 任务接入，当前不建立无人消费的独立状态表。
+T-006 将分类与迁移实现为纯领域逻辑并回放冻结向量。Foreign Flow、Catalyst 或 Price Structure 等关键输入不可用时输出 `DATA_UNAVAILABLE`，保持状态、清零 streak，并把 Confidence 上限降为 `LOW`。T-007 以 Analysis Run 为聚合根原子保存 Bundle、可比 Score 和每个已评估 session 的 Memory 结果；同一规则版本与主资产的 Memory 历史必须按 session date 顺序追加，精确重放返回既有历史，冲突或乱序输入不得覆盖旧状态。
 
 ## 10. 跨市场确认链
 

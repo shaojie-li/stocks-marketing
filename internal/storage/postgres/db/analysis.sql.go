@@ -35,8 +35,102 @@ func (q *Queries) CountDeliveryAttempts(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const findComparableAnalysisScore = `-- name: FindComparableAnalysisScore :one
+SELECT s.id, s.analysis_run_id, s.score_type, s.rule_version, s.primary_asset, s.phase, s.window_type, s.component_set, s.value, s.direction, s.coverage_pct, s.confidence_max, s.payload, s.created_at
+FROM analysis_scores s
+JOIN analysis_runs r ON r.id = s.analysis_run_id
+WHERE s.score_type = $1
+  AND s.rule_version = $2
+  AND s.primary_asset = $3
+  AND s.phase = $4
+  AND s.window_type = $5
+  AND s.component_set = $6
+  AND r.window_end < $7::timestamptz
+ORDER BY r.window_end DESC, s.id DESC
+LIMIT 1
+`
+
+type FindComparableAnalysisScoreParams struct {
+	ScoreType       string             `json:"score_type"`
+	RuleVersion     string             `json:"rule_version"`
+	PrimaryAsset    string             `json:"primary_asset"`
+	Phase           string             `json:"phase"`
+	WindowType      string             `json:"window_type"`
+	ComponentSet    []string           `json:"component_set"`
+	BeforeWindowEnd pgtype.Timestamptz `json:"before_window_end"`
+}
+
+func (q *Queries) FindComparableAnalysisScore(ctx context.Context, arg FindComparableAnalysisScoreParams) (AnalysisScore, error) {
+	row := q.db.QueryRow(ctx, findComparableAnalysisScore,
+		arg.ScoreType,
+		arg.RuleVersion,
+		arg.PrimaryAsset,
+		arg.Phase,
+		arg.WindowType,
+		arg.ComponentSet,
+		arg.BeforeWindowEnd,
+	)
+	var i AnalysisScore
+	err := row.Scan(
+		&i.ID,
+		&i.AnalysisRunID,
+		&i.ScoreType,
+		&i.RuleVersion,
+		&i.PrimaryAsset,
+		&i.Phase,
+		&i.WindowType,
+		&i.ComponentSet,
+		&i.Value,
+		&i.Direction,
+		&i.CoveragePct,
+		&i.ConfidenceMax,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const findLatestMemoryTrendHistory = `-- name: FindLatestMemoryTrendHistory :one
+SELECT id, analysis_run_id, rule_version, primary_asset, session_date, previous_state, state, day_classification, transitioned, supportive_streak, adverse_streak, reason, confidence_max, evidence_refs, payload, created_at FROM memory_trend_history
+WHERE rule_version = $1
+  AND primary_asset = $2
+  AND session_date < $3::date
+ORDER BY session_date DESC, id DESC
+LIMIT 1
+`
+
+type FindLatestMemoryTrendHistoryParams struct {
+	RuleVersion       string      `json:"rule_version"`
+	PrimaryAsset      string      `json:"primary_asset"`
+	BeforeSessionDate pgtype.Date `json:"before_session_date"`
+}
+
+func (q *Queries) FindLatestMemoryTrendHistory(ctx context.Context, arg FindLatestMemoryTrendHistoryParams) (MemoryTrendHistory, error) {
+	row := q.db.QueryRow(ctx, findLatestMemoryTrendHistory, arg.RuleVersion, arg.PrimaryAsset, arg.BeforeSessionDate)
+	var i MemoryTrendHistory
+	err := row.Scan(
+		&i.ID,
+		&i.AnalysisRunID,
+		&i.RuleVersion,
+		&i.PrimaryAsset,
+		&i.SessionDate,
+		&i.PreviousState,
+		&i.State,
+		&i.DayClassification,
+		&i.Transitioned,
+		&i.SupportiveStreak,
+		&i.AdverseStreak,
+		&i.Reason,
+		&i.ConfidenceMax,
+		&i.EvidenceRefs,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getAnalysisRun = `-- name: GetAnalysisRun :one
-SELECT id, input_hash, rule_version, report, indicators, created_at
+SELECT id, input_hash, rule_version, report, indicators, created_at, phase, primary_asset, window_type, window_start, window_end, as_of_bucket, bundle
 FROM analysis_runs
 WHERE id = $1
 `
@@ -51,12 +145,19 @@ func (q *Queries) GetAnalysisRun(ctx context.Context, id int64) (AnalysisRun, er
 		&i.Report,
 		&i.Indicators,
 		&i.CreatedAt,
+		&i.Phase,
+		&i.PrimaryAsset,
+		&i.WindowType,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.AsOfBucket,
+		&i.Bundle,
 	)
 	return i, err
 }
 
 const getAnalysisRunByInputHash = `-- name: GetAnalysisRunByInputHash :one
-SELECT id, input_hash, rule_version, report, indicators, created_at
+SELECT id, input_hash, rule_version, report, indicators, created_at, phase, primary_asset, window_type, window_start, window_end, as_of_bucket, bundle
 FROM analysis_runs
 WHERE input_hash = $1
 `
@@ -71,6 +172,97 @@ func (q *Queries) GetAnalysisRunByInputHash(ctx context.Context, inputHash []byt
 		&i.Report,
 		&i.Indicators,
 		&i.CreatedAt,
+		&i.Phase,
+		&i.PrimaryAsset,
+		&i.WindowType,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.AsOfBucket,
+		&i.Bundle,
+	)
+	return i, err
+}
+
+const getAnalysisScoreByRun = `-- name: GetAnalysisScoreByRun :one
+SELECT id, analysis_run_id, score_type, rule_version, primary_asset, phase, window_type, component_set, value, direction, coverage_pct, confidence_max, payload, created_at FROM analysis_scores
+WHERE analysis_run_id = $1 AND score_type = $2
+`
+
+type GetAnalysisScoreByRunParams struct {
+	AnalysisRunID int64  `json:"analysis_run_id"`
+	ScoreType     string `json:"score_type"`
+}
+
+func (q *Queries) GetAnalysisScoreByRun(ctx context.Context, arg GetAnalysisScoreByRunParams) (AnalysisScore, error) {
+	row := q.db.QueryRow(ctx, getAnalysisScoreByRun, arg.AnalysisRunID, arg.ScoreType)
+	var i AnalysisScore
+	err := row.Scan(
+		&i.ID,
+		&i.AnalysisRunID,
+		&i.ScoreType,
+		&i.RuleVersion,
+		&i.PrimaryAsset,
+		&i.Phase,
+		&i.WindowType,
+		&i.ComponentSet,
+		&i.Value,
+		&i.Direction,
+		&i.CoveragePct,
+		&i.ConfidenceMax,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getBundleAnalysisRunByIdentity = `-- name: GetBundleAnalysisRunByIdentity :one
+SELECT id, input_hash, rule_version, report, indicators, created_at, phase, primary_asset, window_type, window_start, window_end, as_of_bucket, bundle
+FROM analysis_runs
+WHERE rule_version = $1
+  AND phase = $2
+  AND primary_asset = $3
+  AND window_type = $4
+  AND window_start = $5::timestamptz
+  AND window_end = $6::timestamptz
+  AND as_of_bucket = $7::timestamptz
+  AND bundle IS NOT NULL
+`
+
+type GetBundleAnalysisRunByIdentityParams struct {
+	RuleVersion  string             `json:"rule_version"`
+	Phase        pgtype.Text        `json:"phase"`
+	PrimaryAsset pgtype.Text        `json:"primary_asset"`
+	WindowType   pgtype.Text        `json:"window_type"`
+	WindowStart  pgtype.Timestamptz `json:"window_start"`
+	WindowEnd    pgtype.Timestamptz `json:"window_end"`
+	AsOfBucket   pgtype.Timestamptz `json:"as_of_bucket"`
+}
+
+func (q *Queries) GetBundleAnalysisRunByIdentity(ctx context.Context, arg GetBundleAnalysisRunByIdentityParams) (AnalysisRun, error) {
+	row := q.db.QueryRow(ctx, getBundleAnalysisRunByIdentity,
+		arg.RuleVersion,
+		arg.Phase,
+		arg.PrimaryAsset,
+		arg.WindowType,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.AsOfBucket,
+	)
+	var i AnalysisRun
+	err := row.Scan(
+		&i.ID,
+		&i.InputHash,
+		&i.RuleVersion,
+		&i.Report,
+		&i.Indicators,
+		&i.CreatedAt,
+		&i.Phase,
+		&i.PrimaryAsset,
+		&i.WindowType,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.AsOfBucket,
+		&i.Bundle,
 	)
 	return i, err
 }
@@ -98,11 +290,85 @@ func (q *Queries) GetDeliveryAttemptByKey(ctx context.Context, idempotencyKey st
 	return i, err
 }
 
+const getLatestMemoryTrendHistory = `-- name: GetLatestMemoryTrendHistory :one
+SELECT id, analysis_run_id, rule_version, primary_asset, session_date, previous_state, state, day_classification, transitioned, supportive_streak, adverse_streak, reason, confidence_max, evidence_refs, payload, created_at FROM memory_trend_history
+WHERE rule_version = $1
+  AND primary_asset = $2
+ORDER BY session_date DESC, id DESC
+LIMIT 1
+`
+
+type GetLatestMemoryTrendHistoryParams struct {
+	RuleVersion  string `json:"rule_version"`
+	PrimaryAsset string `json:"primary_asset"`
+}
+
+func (q *Queries) GetLatestMemoryTrendHistory(ctx context.Context, arg GetLatestMemoryTrendHistoryParams) (MemoryTrendHistory, error) {
+	row := q.db.QueryRow(ctx, getLatestMemoryTrendHistory, arg.RuleVersion, arg.PrimaryAsset)
+	var i MemoryTrendHistory
+	err := row.Scan(
+		&i.ID,
+		&i.AnalysisRunID,
+		&i.RuleVersion,
+		&i.PrimaryAsset,
+		&i.SessionDate,
+		&i.PreviousState,
+		&i.State,
+		&i.DayClassification,
+		&i.Transitioned,
+		&i.SupportiveStreak,
+		&i.AdverseStreak,
+		&i.Reason,
+		&i.ConfidenceMax,
+		&i.EvidenceRefs,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getMemoryTrendHistoryBySession = `-- name: GetMemoryTrendHistoryBySession :one
+SELECT id, analysis_run_id, rule_version, primary_asset, session_date, previous_state, state, day_classification, transitioned, supportive_streak, adverse_streak, reason, confidence_max, evidence_refs, payload, created_at FROM memory_trend_history
+WHERE rule_version = $1
+  AND primary_asset = $2
+  AND session_date = $3::date
+`
+
+type GetMemoryTrendHistoryBySessionParams struct {
+	RuleVersion  string      `json:"rule_version"`
+	PrimaryAsset string      `json:"primary_asset"`
+	SessionDate  pgtype.Date `json:"session_date"`
+}
+
+func (q *Queries) GetMemoryTrendHistoryBySession(ctx context.Context, arg GetMemoryTrendHistoryBySessionParams) (MemoryTrendHistory, error) {
+	row := q.db.QueryRow(ctx, getMemoryTrendHistoryBySession, arg.RuleVersion, arg.PrimaryAsset, arg.SessionDate)
+	var i MemoryTrendHistory
+	err := row.Scan(
+		&i.ID,
+		&i.AnalysisRunID,
+		&i.RuleVersion,
+		&i.PrimaryAsset,
+		&i.SessionDate,
+		&i.PreviousState,
+		&i.State,
+		&i.DayClassification,
+		&i.Transitioned,
+		&i.SupportiveStreak,
+		&i.AdverseStreak,
+		&i.Reason,
+		&i.ConfidenceMax,
+		&i.EvidenceRefs,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertAnalysisRun = `-- name: InsertAnalysisRun :one
 INSERT INTO analysis_runs (input_hash, rule_version, report, indicators)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (input_hash) DO NOTHING
-RETURNING id, input_hash, rule_version, report, indicators, created_at
+RETURNING id, input_hash, rule_version, report, indicators, created_at, phase, primary_asset, window_type, window_start, window_end, as_of_bucket, bundle
 `
 
 type InsertAnalysisRunParams struct {
@@ -127,6 +393,134 @@ func (q *Queries) InsertAnalysisRun(ctx context.Context, arg InsertAnalysisRunPa
 		&i.Report,
 		&i.Indicators,
 		&i.CreatedAt,
+		&i.Phase,
+		&i.PrimaryAsset,
+		&i.WindowType,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.AsOfBucket,
+		&i.Bundle,
+	)
+	return i, err
+}
+
+const insertAnalysisScore = `-- name: InsertAnalysisScore :one
+INSERT INTO analysis_scores (
+    analysis_run_id, score_type, rule_version, primary_asset, phase, window_type,
+    component_set, value, direction, coverage_pct, confidence_max, payload
+) VALUES (
+    $1, $2, $3, $4,
+    $5, $6, $7, $8::numeric,
+    NULLIF($9, ''), $10, $11, $12
+)
+ON CONFLICT DO NOTHING
+RETURNING id, analysis_run_id, score_type, rule_version, primary_asset, phase, window_type, component_set, value, direction, coverage_pct, confidence_max, payload, created_at
+`
+
+type InsertAnalysisScoreParams struct {
+	AnalysisRunID int64          `json:"analysis_run_id"`
+	ScoreType     string         `json:"score_type"`
+	RuleVersion   string         `json:"rule_version"`
+	PrimaryAsset  string         `json:"primary_asset"`
+	Phase         string         `json:"phase"`
+	WindowType    string         `json:"window_type"`
+	ComponentSet  []string       `json:"component_set"`
+	Value         pgtype.Numeric `json:"value"`
+	Direction     interface{}    `json:"direction"`
+	CoveragePct   int16          `json:"coverage_pct"`
+	ConfidenceMax string         `json:"confidence_max"`
+	Payload       []byte         `json:"payload"`
+}
+
+func (q *Queries) InsertAnalysisScore(ctx context.Context, arg InsertAnalysisScoreParams) (AnalysisScore, error) {
+	row := q.db.QueryRow(ctx, insertAnalysisScore,
+		arg.AnalysisRunID,
+		arg.ScoreType,
+		arg.RuleVersion,
+		arg.PrimaryAsset,
+		arg.Phase,
+		arg.WindowType,
+		arg.ComponentSet,
+		arg.Value,
+		arg.Direction,
+		arg.CoveragePct,
+		arg.ConfidenceMax,
+		arg.Payload,
+	)
+	var i AnalysisScore
+	err := row.Scan(
+		&i.ID,
+		&i.AnalysisRunID,
+		&i.ScoreType,
+		&i.RuleVersion,
+		&i.PrimaryAsset,
+		&i.Phase,
+		&i.WindowType,
+		&i.ComponentSet,
+		&i.Value,
+		&i.Direction,
+		&i.CoveragePct,
+		&i.ConfidenceMax,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const insertBundleAnalysisRun = `-- name: InsertBundleAnalysisRun :one
+INSERT INTO analysis_runs (
+    input_hash, rule_version, phase, primary_asset, window_type,
+    window_start, window_end, as_of_bucket, bundle, indicators
+) VALUES (
+    $1, $2, $3, $4, $5,
+    $6::timestamptz, $7::timestamptz,
+    $8::timestamptz, $9, $10
+)
+ON CONFLICT DO NOTHING
+RETURNING id, input_hash, rule_version, report, indicators, created_at, phase, primary_asset, window_type, window_start, window_end, as_of_bucket, bundle
+`
+
+type InsertBundleAnalysisRunParams struct {
+	InputHash    []byte             `json:"input_hash"`
+	RuleVersion  string             `json:"rule_version"`
+	Phase        pgtype.Text        `json:"phase"`
+	PrimaryAsset pgtype.Text        `json:"primary_asset"`
+	WindowType   pgtype.Text        `json:"window_type"`
+	WindowStart  pgtype.Timestamptz `json:"window_start"`
+	WindowEnd    pgtype.Timestamptz `json:"window_end"`
+	AsOfBucket   pgtype.Timestamptz `json:"as_of_bucket"`
+	Bundle       []byte             `json:"bundle"`
+	Indicators   []byte             `json:"indicators"`
+}
+
+func (q *Queries) InsertBundleAnalysisRun(ctx context.Context, arg InsertBundleAnalysisRunParams) (AnalysisRun, error) {
+	row := q.db.QueryRow(ctx, insertBundleAnalysisRun,
+		arg.InputHash,
+		arg.RuleVersion,
+		arg.Phase,
+		arg.PrimaryAsset,
+		arg.WindowType,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.AsOfBucket,
+		arg.Bundle,
+		arg.Indicators,
+	)
+	var i AnalysisRun
+	err := row.Scan(
+		&i.ID,
+		&i.InputHash,
+		&i.RuleVersion,
+		&i.Report,
+		&i.Indicators,
+		&i.CreatedAt,
+		&i.Phase,
+		&i.PrimaryAsset,
+		&i.WindowType,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.AsOfBucket,
+		&i.Bundle,
 	)
 	return i, err
 }
@@ -156,6 +550,77 @@ func (q *Queries) InsertDeliveryAttempt(ctx context.Context, arg InsertDeliveryA
 		&i.LastError,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const insertMemoryTrendHistory = `-- name: InsertMemoryTrendHistory :one
+INSERT INTO memory_trend_history (
+    analysis_run_id, rule_version, primary_asset, session_date, previous_state, state,
+    day_classification, transitioned, supportive_streak, adverse_streak, reason,
+    confidence_max, evidence_refs, payload
+) VALUES (
+    $1, $2, $3, $4::date,
+    $5, $6, $7, $8,
+    $9, $10, $11,
+    $12, $13, $14
+)
+ON CONFLICT DO NOTHING
+RETURNING id, analysis_run_id, rule_version, primary_asset, session_date, previous_state, state, day_classification, transitioned, supportive_streak, adverse_streak, reason, confidence_max, evidence_refs, payload, created_at
+`
+
+type InsertMemoryTrendHistoryParams struct {
+	AnalysisRunID     int64       `json:"analysis_run_id"`
+	RuleVersion       string      `json:"rule_version"`
+	PrimaryAsset      string      `json:"primary_asset"`
+	SessionDate       pgtype.Date `json:"session_date"`
+	PreviousState     string      `json:"previous_state"`
+	State             string      `json:"state"`
+	DayClassification string      `json:"day_classification"`
+	Transitioned      bool        `json:"transitioned"`
+	SupportiveStreak  int32       `json:"supportive_streak"`
+	AdverseStreak     int32       `json:"adverse_streak"`
+	Reason            string      `json:"reason"`
+	ConfidenceMax     string      `json:"confidence_max"`
+	EvidenceRefs      []byte      `json:"evidence_refs"`
+	Payload           []byte      `json:"payload"`
+}
+
+func (q *Queries) InsertMemoryTrendHistory(ctx context.Context, arg InsertMemoryTrendHistoryParams) (MemoryTrendHistory, error) {
+	row := q.db.QueryRow(ctx, insertMemoryTrendHistory,
+		arg.AnalysisRunID,
+		arg.RuleVersion,
+		arg.PrimaryAsset,
+		arg.SessionDate,
+		arg.PreviousState,
+		arg.State,
+		arg.DayClassification,
+		arg.Transitioned,
+		arg.SupportiveStreak,
+		arg.AdverseStreak,
+		arg.Reason,
+		arg.ConfidenceMax,
+		arg.EvidenceRefs,
+		arg.Payload,
+	)
+	var i MemoryTrendHistory
+	err := row.Scan(
+		&i.ID,
+		&i.AnalysisRunID,
+		&i.RuleVersion,
+		&i.PrimaryAsset,
+		&i.SessionDate,
+		&i.PreviousState,
+		&i.State,
+		&i.DayClassification,
+		&i.Transitioned,
+		&i.SupportiveStreak,
+		&i.AdverseStreak,
+		&i.Reason,
+		&i.ConfidenceMax,
+		&i.EvidenceRefs,
+		&i.Payload,
+		&i.CreatedAt,
 	)
 	return i, err
 }

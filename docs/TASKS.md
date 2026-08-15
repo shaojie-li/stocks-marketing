@@ -29,9 +29,11 @@ T-004 Hyperliquid 实时行情快路径与数据质量门（DONE）
 T-005 同窗口收益与六个核心指标（DONE）
                                       ↓
 T-006 Trend Score 与 Memory 状态迁移（DONE）
+                                      ↓
+T-007 确定性 Analysis Bundle 与可比历史（DONE）
 ```
 
-T-001 至 T-006 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径、可审计的同窗口指标，以及确定性的 Trend Score 和 Memory 状态迁移。下一任务应组装完整确定性 Analysis Bundle，并持久化可比 Score 与 Memory 迁移历史。
+T-001 至 T-007 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径、可审计的同窗口指标、确定性的 Trend Score 和 Memory 状态迁移，以及不可变 Analysis Bundle 与可比历史。
 
 ## 4. 稳定任务索引
 
@@ -43,6 +45,7 @@ T-001 至 T-006 已完成，形成规则契约、Hyperliquid 数据边界、可�
 | M2 | T-004 | 接入 Hyperliquid 实时行情快路径与数据质量门 | [#8](https://github.com/shaojie-li/stocks-marketing/issues/8) | `DONE` |
 | M2 | T-005 | 计算同窗口收益与六个核心指标 | [#10](https://github.com/shaojie-li/stocks-marketing/issues/10) | `DONE` |
 | M2 | T-006 | 计算 Trend Score 并执行 Memory 状态迁移 | [#12](https://github.com/shaojie-li/stocks-marketing/issues/12) | `DONE` |
+| M2 | T-007 | 组装确定性 Analysis Bundle 并持久化可比 Score 与 Memory 历史 | [#14](https://github.com/shaojie-li/stocks-marketing/issues/14) | `DONE` |
 
 ## 5. 暂不进入关键路径
 

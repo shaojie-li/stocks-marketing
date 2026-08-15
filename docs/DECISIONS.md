@@ -81,3 +81,27 @@
 - 丢失 `SETTINGS_MASTER_KEY` 会导致数据库中的敏感配置不可恢复，因此生产环境必须在部署平台安全保存并稳定注入该值。
 - 数据库备份不会包含可直接使用的敏感明文；恢复服务同时需要数据库备份和对应主密钥。
 - 业务配置变更可以集中审计；主密钥轮换工具尚未实现，在出现实际轮换要求前不提前增加复杂度。
+
+## D-004 Analysis Run 聚合确定性 Bundle 与可比历史
+
+- 状态：Accepted
+- 日期：2026-08-15
+- 关联：[T-007](https://github.com/shaojie-li/stocks-marketing/issues/14)
+
+### 背景
+
+T-003 的 `analysis_runs` 只按完整 report 哈希去重，能够支持最小 Discord 垂直链路，但不能表达全局契约规定的稳定分析身份，也不能可靠查询可比 Score 或恢复 Memory 多日状态。若由调用者传入“上一结果”，并发重试、乱序 session 或组件覆盖集合变化会产生不可审计的方向和状态分叉。
+
+### 决策
+
+- 继续使用 `analysis_runs` 作为唯一 Analysis Run 聚合根，不建立平行运行表。迁移前的 report-only 行和 delivery 外键保持可读；新路径保存稳定身份、输入哈希、核心指标和不可变确定性 Bundle。
+- Bundle JSONB 保存完整冻结产物；稳定身份、Score 可比字段、权威分值和 Memory session 字段关系化保存。权威 Score 使用 PostgreSQL `NUMERIC`，不使用 `float64`。
+- Trend 前值只从数据库选择主资产、规则版本、phase、window type 和可用组件集合完全相同的更早结果，调用者提供的前值不参与持久化路径。
+- Memory 以 `rule_version + primary_asset` 作为状态流、以 session date 作为自然历史身份。每个 session 的 from/to、分类、streak、原因、Confidence 和证据不可变；精确重放复用历史，冲突和旧 session 回插显式失败。
+- Analysis Run、Score 和 Memory 在一个事务中写入。按稳定身份锁和 Memory 状态流锁的固定顺序串行化并发提交，避免重复版本、丢失更新、分叉和死锁。
+
+### 影响
+
+- 后续 AI 和 Discord 报告只需读取已冻结 Bundle，不再计算权威指标、Score 方向或 Memory 状态。
+- JSONB 保留完整可回放内容，关系型列承担幂等、排序和可比查询；新增查询字段时必须先证明真实消费路径，避免复制整份 Bundle 到多套表。
+- 当前 Price Structure 与 Foreign Flow 仍为 `UNAVAILABLE`。Trend 可以按 80% 覆盖率计算，Memory 记录 `DATA_UNAVAILABLE` 并保持前态；本决策不授权第二行情源或价格反推资金流。
