@@ -1,6 +1,6 @@
 # Hyperliquid 市场数据能力验证
 
-状态：In Progress
+状态：Frozen v1.0
 关联任务：[T-002](https://github.com/shaojie-li/stocks-marketing/issues/2)
 最近验证：2026-08-15
 
@@ -53,16 +53,16 @@
 | SKHY | `xyz:SKHY` | `AVAILABLE` |
 | SOXX 语义 | `xyz:SMH` | `AVAILABLE_PROXY` |
 | QQQ/Nasdaq 语义 | `xyz:XYZ100` | `AVAILABLE_PROXY` |
-| SPY | 无 | `UNAVAILABLE` |
+| SPY/S&P 500 语义 | `xyz:SP500` | `AVAILABLE_PROXY` |
 | Samsung | `xyz:SMSN` | `AVAILABLE` |
 | KOSPI200 语义 | `xyz:KR200` | `AVAILABLE_PROXY` |
-| USDKRW | 无 | `UNAVAILABLE` |
+| USDKRW | `xyz:KRW` | `UNAVAILABLE_DELISTED` |
 | US2Y / US10Y | 无 | `UNAVAILABLE` |
-| Brent | 无 | `UNAVAILABLE` |
-| DXY | 只有零 OI 候选 | `UNAVAILABLE` |
-| WTI | 只有零 OI 候选 | `UNAVAILABLE` |
+| Brent | `xyz:BRENTOIL` | `AVAILABLE_PROXY` |
+| DXY | `xyz:DXY` | `UNAVAILABLE_DELISTED` |
+| WTI | `xyz:CL` | `AVAILABLE_PROXY` |
 
-复核后，六个核心价格指标所需合约均有候选。SPY、利率、外汇或能源等非核心输入缺失时，只跳过依赖它们的阶段或模块，不使用其他行情源补齐。
+复核后，六个核心价格指标所需合约均有候选。任一非核心输入缺失时，只跳过依赖它的阶段或模块，不使用其他行情源补齐。
 
 ### 3.1 代理语义
 
@@ -71,6 +71,7 @@
 - `XYZ100` 跟踪 100 家大型非金融美国公司，是 Growth/Nasdaq 语义代理，不得标成 QQQ 原值。
 - `SMH` 是非杠杆半导体 ETF，用于 Semiconductor benchmark。
 - `SOXL` 虽存在且有 OI，但每日目标为半导体指数的 3 倍且每日重置；不适合作为未经变换的 Relative Strength 基准，因此明确拒绝该替代。
+- `SP500`、`BRENTOIL` 和 `CL` 分别承载 S&P 500、Brent 和 WTI 语义；`KRW` 与 `DXY` 虽能从 metadata 发现，但已经 `isDelisted=true` 且 OI 为零，Eligibility Gate 必须拒绝。
 
 ## 4. 动态发现与同名合约
 
@@ -130,20 +131,51 @@ WebSocket 对 `xyz:SKHY` 的 `l2Book` 和 `activeAssetCtx` 订阅成功返回：
 
 结论：Hyperliquid 连续 candle 能提供阶段窗口的原始价格，但开盘、收盘、隔夜和周末是报告调度语义，不是底层现货 session。每个 phase 必须显式保存 `window_start`、`window_end`、`as_of` 和 candle 完成状态。
 
-## 9. 尚未完成
+## 9. 失败与恢复边界
 
-- 429、超时和服务端错误的有限重试边界；
-- WebSocket 断线重连、订阅上限和异常关闭；
-- 空盘口、合约暂停、oracle stale 和 mark/oracle 偏离规则；
-- 公开数据的持久化、展示与二次分发许可。
+冻结策略见 [`failure-policy-v1.json`](../testdata/data-sources/hyperliquid/failure-policy-v1.json)：
 
-这些项目完成并形成可重放探针后，T-002 才能关闭。
+- REST 按端点权重使用每分钟 600 的内部预算，只占官方 1,200 weight/min 上限的一半；不通过主动制造 429 验证公共服务。
+- 单次请求 15 秒超时；408、429 和选定 5xx 最多共尝试 3 次，使用 1 秒起步、4 秒封顶的 full-jitter 指数退避。其他 4xx 和载荷校验失败不重试。
+- WebSocket 每 30 秒发送 ping，10 秒未收到 pong 即断开；重连退避上限 30 秒。重连后必须取得订阅确认和新快照，恢复前 Gate 拒绝分析。
+- `isDelisted=true`、零 OI、mark/oracle 缺失、空或单边盘口、传输超过 5 秒未更新都会产生 `SKIPPED_SOURCE_INCOMPLETE`。
+- `perpsAtOpenInterestCap` 中的合约禁止建立新 Entry；`perpDexStatus` 只描述 DEX 状态，不能替代逐资产 eligibility 检查。
 
-## 10. 官方参考
+`metaAndAssetCtxs` 没有给出外部 oracle 源自身的采样时间。因此系统只能验证盘口/消息的服务端时间和本地接收年龄，不能把“刚收到 oraclePx”描述成“底层 oracle 已确认新鲜”。外部 oracle freshness 为 `UNAVAILABLE` 时，报告置信度不能高于底层证据；出现消息停更或无效字段时直接关闭 Gate。
+
+## 10. 持久化与再分发边界
+
+项目政策冻结为：
+
+- 允许内部拉取公共行情，并保存用于审计的有界聚合、异常、时间戳和响应哈希；不永久保存 tick 流或完整订单簿历史。
+- Discord 只发送派生分析和必要的来源/时间戳，不提供原始行情 feed、批量 candle 或订单簿转储。
+- trade.xyz Terms 会将 Interface 与第三方服务区分开，但未提供明确的原始市场数据再分发授权。因此 raw redistribution 标记为 `UNCONFIRMED`，在取得书面授权或法律复核前禁止。
+- 地域、受限主体及第三方服务条款仍由实际运营者负责核验；本结论是项目风险边界，不是法律意见。
+
+## 11. 可重放验证
+
+公共只读探针只依赖 Python 标准库，不读取账户、地址、token 或 header：
+
+```bash
+python3 scripts/probe-hyperliquid.py > /tmp/hyperliquid-probe.json
+python3 scripts/validate-analysis-contract.py
+```
+
+探针实时复核版本化映射、退市、OI、mark/oracle、双边盘口和 OI cap。429、超时、断线与 stale 的降级策略由确定性 fixture 校验；不以破坏公共服务或等待真实故障作为验收手段。
+
+## 12. 结论
+
+T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid 映射；非核心 USDKRW、DXY 和美债收益率当前不可用，依赖它们的阶段停止处理而不补源。所有可用性均须在运行时重新发现和过 Gate，本次快照不构成永久保证。
+
+## 13. 官方参考
 
 - [Hyperliquid Info endpoint](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint)
 - [Hyperliquid Perpetuals API](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals)
 - [Hyperliquid WebSocket subscriptions](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions)
+- [Hyperliquid rate limits](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits)
+- [Hyperliquid WebSocket](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket)
+- [Hyperliquid WebSocket timeouts and heartbeats](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/timeouts-and-heartbeats)
 - [trade.xyz Specification Index](https://docs.trade.xyz/consolidated-resources/specification-index)
 - [trade.xyz Korea assets](https://docs.trade.xyz/asset-directory/korea)
 - [trade.xyz Equity indices](https://docs.trade.xyz/xyz-perps-specification/equity-indices)
+- [trade.xyz Terms of Use](https://trade.xyz/terms)

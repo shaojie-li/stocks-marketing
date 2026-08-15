@@ -21,9 +21,9 @@
   ],
   "zero_open_interest_duplicates": ["flx:NVDA", "km:NVDA", "km:MU", "cash:NVDA", "mkts:NVDA", "mkts:MU"],
   "coverage_snapshot": {
-    "available_nonzero_open_interest": ["NVDA", "AMD", "MU", "SMH", "SKHY", "KR200", "SOXL", "XYZ100", "SMSN"],
-    "missing": ["SPY", "USDKRW", "US2Y", "US10Y", "BRENT"],
-    "zero_open_interest_only": ["DXY", "WTI"]
+    "available_nonzero_open_interest": ["NVDA", "AMD", "MU", "SMH", "SKHY", "KR200", "SOXL", "XYZ100", "SMSN", "SP500", "BRENTOIL", "CL"],
+    "missing": ["US2Y", "US10Y"],
+    "delisted_zero_open_interest": ["KRW", "DXY"]
   },
   "alias_mapping_check": {
     "captured_at": "2026-08-15T07:49:55.581166Z",
@@ -32,6 +32,16 @@
       {"asset": "xyz:SOXL", "open_interest": "34474.92", "mark_px": "144.08", "oracle_px": "144.06", "best_bid": "144.08", "best_ask": "144.09"},
       {"asset": "xyz:XYZ100", "open_interest": "7763.3602", "mark_px": "30009.0", "oracle_px": "30010.0", "best_bid": "30008.0", "best_ask": "30009.0"},
       {"asset": "xyz:SMSN", "open_interest": "285986.5479999999", "mark_px": "190.43", "oracle_px": "190.22", "best_bid": "190.41", "best_ask": "190.43"}
+    ]
+  },
+  "secondary_mapping_check": {
+    "captured_at": "2026-08-15T07:58:00Z",
+    "assets": [
+      {"asset": "xyz:SP500", "is_delisted": false, "open_interest": "66119.632", "mark_px": "7776.9", "oracle_px": "7777.8"},
+      {"asset": "xyz:KRW", "is_delisted": true, "open_interest": "0.0", "mark_px": "1416.5", "oracle_px": "1416.5"},
+      {"asset": "xyz:BRENTOIL", "is_delisted": false, "open_interest": "1914242.9399999995", "mark_px": "85.589", "oracle_px": "85.668"},
+      {"asset": "xyz:CL", "is_delisted": false, "open_interest": "2386789.3240000014", "mark_px": "80.63", "oracle_px": "80.724"},
+      {"asset": "xyz:DXY", "is_delisted": true, "open_interest": "0.0", "mark_px": "97.15", "oracle_px": "97.15"}
     ]
   },
   "books": [

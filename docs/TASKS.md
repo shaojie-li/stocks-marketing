@@ -21,19 +21,19 @@ GitHub Issues 是实施任务的唯一事实源。本文件只保存稳定编号
 
 ```text
 T-001 全局分析规则与输出契约 ─┐
-                                ├→ T-003 项目骨架与最小垂直链路
+                                ├→ T-003 项目骨架与最小垂直链路（NEXT）
 T-002 核心数据源真实能力验证 ─┘
 ```
 
-T-001 已冻结规则契约。当前唯一 `status:next` 是 T-002；T-003 必须等待 T-002 冻结可执行结论后实施。
+T-001 与 T-002 已分别冻结规则契约和 Hyperliquid 数据源边界。T-003 的前置依赖已解除，是下一项实施任务。
 
 ## 4. 稳定任务索引
 
 | 里程碑 | 编号 | 任务 | GitHub | 状态 |
 |---|---|---|---|---|
 | M0 | T-001 | 定义全局分析规则与结构化输出契约 | [#1](https://github.com/shaojie-li/stocks-marketing/issues/1) | `DONE` |
-| M0 | T-002 | 验证核心数据源的真实覆盖、时效与授权边界 | [#2](https://github.com/shaojie-li/stocks-marketing/issues/2) | `NEXT` |
-| M1 | T-003 | 建立项目骨架与最小可验证垂直链路 | [#3](https://github.com/shaojie-li/stocks-marketing/issues/3) | `BLOCKED_BY_T-001_T-002` |
+| M0 | T-002 | 验证核心数据源的真实覆盖、时效与授权边界 | [#2](https://github.com/shaojie-li/stocks-marketing/issues/2) | `DONE` |
+| M1 | T-003 | 建立项目骨架与最小可验证垂直链路 | [#3](https://github.com/shaojie-li/stocks-marketing/issues/3) | `NEXT` |
 
 ## 5. 暂不进入关键路径
 
