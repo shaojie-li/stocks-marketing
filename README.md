@@ -12,6 +12,7 @@ Hyperliquid REST 初始快照 + WebSocket 实时更新
 Hyperliquid 同批当前 mark + 24h 起点 candle
 → 8 个同窗口收益 Observation
 → 5 个 Relative Strength + Cross-Market
+→ 按可用权重归一化的 Trend Score
 
 固定分析 fixture
 → 同窗口核心指标
@@ -79,7 +80,7 @@ go run ./cmd/market-check
 go run ./cmd/indicator-check
 ```
 
-命令使用同一批当前 mark 和完全相同的分钟起点锚点计算收益，只输出 8 个 Observation 与派生指标，不输出原始 candle 数组。
+命令使用同一批当前 mark 和完全相同的分钟起点锚点计算收益，只输出 8 个 Observation、派生指标与 Trend Score，不输出原始 candle 数组。当前 Price Structure 与 Foreign Flow 尚不可用，因此 live check 的 Trend 覆盖率为 80%、Confidence 上限为 `MEDIUM`；缺失项不补零，也不接第二行情源。
 
 进程收到 `SIGINT` 或 `SIGTERM` 后停止接收任务，并在 15 秒边界内关闭 River 和数据库连接。
 
