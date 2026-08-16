@@ -57,6 +57,12 @@ func (w *deliveryWorker) Work(ctx context.Context, job *river.Job[DeliveryArgs])
 	if err != nil {
 		return fmt.Errorf("load analysis run: %w", err)
 	}
+	if err := domain.ValidateFormalReport(run.Report); err != nil {
+		_, _ = w.queries.MarkDeliveryFailed(ctx, db.MarkDeliveryFailedParams{
+			ID: delivery.ID, LastError: pgtype.Text{String: "analysis safety gate rejected delivery", Valid: true},
+		})
+		return err
+	}
 	webhookURL, err := w.settings.Get(ctx, discordWebhookSetting)
 	if err != nil {
 		return errors.New("load Discord delivery setting")
@@ -121,6 +127,9 @@ func (a *App) Stop(ctx context.Context) error { return a.river.Stop(ctx) }
 func (a *App) Submit(ctx context.Context, report []byte) (Submission, error) {
 	canonicalReport, err := canonicalJSON(report)
 	if err != nil {
+		return Submission{}, err
+	}
+	if err := domain.ValidateFormalReport(canonicalReport); err != nil {
 		return Submission{}, err
 	}
 	indicators, err := domain.ComputeIndicators(canonicalReport)

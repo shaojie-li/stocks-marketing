@@ -22,7 +22,7 @@ DART SK hynix 公司 RSS 中的衍生品交易损失首次披露
 
 固定分析 fixture
 → 同窗口核心指标
-→ 符合 global-analysis/1.3.0 的结构化报告
+→ 符合 global-analysis/1.4.0 的结构化报告
 → PostgreSQL 幂等 Analysis Run
 → River 可靠任务
 → Discord Webhook
@@ -30,6 +30,11 @@ DART SK hynix 公司 RSS 中的衍生品交易损失首次披露
 通过 Eligibility Gate 的 8 个同窗口 Observation
 → 确定性 Analysis Bundle
 → PostgreSQL 原子保存 Analysis Run、可比 Trend Score 与 Memory session 历史
+
+真实 Analysis Bundle
+→ Fundamental / Entry 缺失显式为 `null`
+→ `OBSERVE + NO_TRADE + SHADOW_ONLY` 确定性安全门
+→ 只读降级全局分析；正式 Discord 投递 fail closed
 ```
 
 缺少核心行情时返回 `SKIPPED_SOURCE_INCOMPLETE`，不会调用 AI 或发送残缺报告。
@@ -103,6 +108,14 @@ go run ./cmd/catalyst-check
 ```
 
 当前只识别 SK hynix DART 公司 RSS 中报告名精确为 `파생상품거래손실발생` 的首次披露。DART 没有最近受支持事件时输出 `NO_RECENT_SUPPORTED_EVENT`；更正、补充或撤回输出 `DATA_CONFLICT`。不会回退到 SK hynix Newsroom、搜索、网页识别、媒体或第二价格源，也不会调用 AI、Discord 或交易接口。
+
+生成真实降级全局分析（只读 shadow）：
+
+```bash
+go run ./cmd/global-analysis-check
+```
+
+命令复用真实 Hyperliquid 与 DART 输入，输出符合当前 Schema 的 `OBSERVE / NO_TRADE` 报告。它不调用模型、不写入正式 Analysis Run、不创建 River/Discord delivery；同一降级报告若提交正式投递路径会在任何副作用前被拒绝。
 
 进程收到 `SIGINT` 或 `SIGTERM` 后停止接收任务，并在 15 秒边界内关闭 River 和数据库连接。
 

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"slices"
 	"testing"
 )
@@ -46,7 +47,7 @@ func TestBuildAnalysisBundleIsDeterministicAndKeepsUnavailableSignalsExplicit(t 
 	if third.Memory.SessionDate != "2026-08-15" {
 		t.Fatalf("civil session date shifted across timezone: %s", third.Memory.SessionDate)
 	}
-	if first.Identity.RuleVersion != "global-analysis/1.3.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
+	if first.Identity.RuleVersion != "global-analysis/1.4.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
 		t.Fatalf("stable identity is incomplete: %#v", first.Identity)
 	}
 	if first.Trend.Value != "9.4" || first.Trend.CoveragePct != 80 || first.Trend.ConfidenceMax != ConfidenceMedium || first.Trend.Direction != "" {
@@ -81,7 +82,7 @@ func TestBuildAnalysisBundleUsesComparableScoreAndPreviousMemory(t *testing.T) {
 	}
 	previousTrend.Value = "8.9"
 	previousMemory := &MemoryTrendTransition{
-		RuleVersion: "global-analysis/1.3.0", State: MemoryTrendImproving,
+		RuleVersion: "global-analysis/1.4.0", State: MemoryTrendImproving,
 		SupportiveStreak: 1, AdverseStreak: 1, SessionDate: "2026-08-14",
 	}
 	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
@@ -172,5 +173,93 @@ func TestBuildAnalysisBundleFreezesCatalystIntoInputHash(t *testing.T) {
 	changed, err := BuildAnalysisBundle(input)
 	if err == nil || changed.InputHash != "" {
 		t.Fatal("internally inconsistent Catalyst was accepted")
+	}
+}
+
+func TestBuildDegradedShadowReportFreezesRealSafetyVector(t *testing.T) {
+	returns := map[string]string{
+		"xyz:MU": "0.46048294", "xyz:SMH": "-0.32024529", "xyz:XYZ100": "0.06997201",
+		"xyz:AMD": "2.29704779", "xyz:NVDA": "-0.39410176", "xyz:SKHY": "-0.07198560",
+		"xyz:SMSN": "-0.92390740", "xyz:KR200": "-0.65490267",
+	}
+	prices := map[string]string{
+		"xyz:MU": "975.19", "xyz:SMH": "585.17", "xyz:XYZ100": "30033.0", "xyz:AMD": "515.26",
+		"xyz:NVDA": "224.94", "xyz:SKHY": "166.58", "xyz:SMSN": "190.88", "xyz:KR200": "1092.2",
+	}
+	observations := coreObservations()
+	for index := range observations {
+		observation := &observations[index]
+		observation.Price = prices[observation.Symbol]
+		observation.ChangePct = returns[observation.Symbol]
+		observation.ObservedAt = "2026-08-15T15:11:35.036701Z"
+		observation.WindowStart = "2026-08-14T15:10:59.999Z"
+		observation.WindowEnd = "2026-08-15T15:11:35.036701Z"
+	}
+	catalyst, err := EvaluateCatalyst(testCatalystEvent(), "2026-08-15T15:11:35.036701Z", CatalystPriceWindow{
+		TargetSymbol: "xyz:SKHY", BenchmarkSymbol: "xyz:SMSN",
+		WindowStart: "2026-08-14T07:43:59.999Z", WindowEnd: "2026-08-15T07:43:59.999Z",
+		TargetStartPrice: "163.93", TargetEndPrice: "166.31", BenchmarkStartPrice: "192.45", BenchmarkEndPrice: "190.40",
+		EvidenceRefs: []string{"ev-skhy-price", "ev-smsn-price"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
+		Phase: "GLOBAL", PrimaryAsset: "xyz:SKHY", AsOf: "2026-08-15T15:11:35.036701Z",
+		AsOfBucket: "2026-08-15T15:11:00Z", Observations: observations, Catalyst: catalyst,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Trend.Value != "7.2" || bundle.Trend.CoveragePct != 80 || bundle.Catalyst.State != CatalystRejected {
+		t.Fatalf("real safety vector = Trend %s/%d, Catalyst %s", bundle.Trend.Value, bundle.Trend.CoveragePct, bundle.Catalyst.State)
+	}
+	report, err := BuildDegradedShadowReport(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded struct {
+		Scores struct {
+			Fundamental struct {
+				Value any `json:"value"`
+			} `json:"fundamental"`
+			Entry struct {
+				Value any `json:"value"`
+			} `json:"entry"`
+			Trend struct {
+				Value float64 `json:"value"`
+			} `json:"trend"`
+		} `json:"scores"`
+		Catalyst struct {
+			ExpectedDirection string `json:"expected_direction"`
+			State             string `json:"state"`
+		} `json:"catalyst"`
+		Strategy struct {
+			Current       string `json:"current"`
+			BestStructure string `json:"best_structure"`
+		} `json:"strategy"`
+		DataAudit struct{ Confidence string } `json:"data_audit"`
+	}
+	if err := json.Unmarshal(report, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Scores.Trend.Value != 7.2 || decoded.Scores.Fundamental.Value != nil || decoded.Scores.Entry.Value != nil ||
+		decoded.Catalyst.ExpectedDirection != "BEARISH" || decoded.Catalyst.State != "REJECTED" ||
+		decoded.Strategy.Current != "OBSERVE" || decoded.Strategy.BestStructure != "NO_TRADE" || decoded.DataAudit.Confidence != "LOW" {
+		t.Fatalf("degraded shadow report = %#v", decoded)
+	}
+}
+
+func TestBuildDegradedShadowReportRejectsInvalidTrendScore(t *testing.T) {
+	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
+		Phase: "GLOBAL", PrimaryAsset: "xyz:SKHY", AsOf: "2026-08-15T06:00:00Z",
+		AsOfBucket: "2026-08-15T06:00:00Z", Observations: coreObservations(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle.Trend.Value = "not-a-score"
+	if _, err = BuildDegradedShadowReport(bundle); err == nil {
+		t.Fatal("invalid Trend Score was silently accepted")
 	}
 }

@@ -36,10 +36,12 @@ T-008 Hyperliquid SKHY 日线价格结构与历史充足性门（DONE）
                                       ↓
 T-009 官方 Foreign Flow 覆盖与授权验证（DONE / NO-GO）
                                       ↓
-T-010 DART 损失披露 Catalyst 的 24h 价格接受（IN PROGRESS）
+T-010 DART 损失披露 Catalyst 的 24h 价格接受（DONE）
+                                      ↓
+T-011 真实降级全局分析与非入场安全门（IN PROGRESS）
 ```
 
-T-001 至 T-009 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径、可审计的同窗口指标、确定性的 Trend Score 和 Memory 状态迁移、不可变 Analysis Bundle 与可比历史，以及可在历史充足后自动启用的 SKHY 连续合约日线价格结构。T-009 对 KRX Foreign Flow 作出 `NO-GO` 决策：当前没有同时满足字段覆盖、稳定自动化和 Discord 输出授权的数据路径，因此不实施。
+T-001 至 T-010 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径、可审计的同窗口指标、确定性的 Trend Score 和 Memory 状态迁移、不可变 Analysis Bundle 与可比历史、可在历史充足后自动启用的 SKHY 连续合约日线价格结构，以及 DART 官方损失披露的 24 小时价格接受。T-009 对 KRX Foreign Flow 作出 `NO-GO` 决策：当前没有同时满足字段覆盖、稳定自动化和 Discord 输出授权的数据路径，因此不实施。
 
 ## 4. 稳定任务索引
 
@@ -54,7 +56,8 @@ T-001 至 T-009 已完成，形成规则契约、Hyperliquid 数据边界、可�
 | M2 | T-007 | 组装确定性 Analysis Bundle 并持久化可比 Score 与 Memory 历史 | [#14](https://github.com/shaojie-li/stocks-marketing/issues/14) | `DONE` |
 | M2 | T-008 | 接入 Hyperliquid SKHY 日线价格结构及历史充足性门 | [#16](https://github.com/shaojie-li/stocks-marketing/issues/16) | `DONE` |
 | M2 | T-009 | 验证官方 Foreign Flow 数据覆盖与授权边界 | [#18](https://github.com/shaojie-li/stocks-marketing/issues/18) | `DONE / NO-GO` |
-| M2 | T-010 | 评估 DART 损失披露 Catalyst 的 24h 价格接受 | [#20](https://github.com/shaojie-li/stocks-marketing/issues/20) | `IN PROGRESS` |
+| M2 | T-010 | 评估 DART 损失披露 Catalyst 的 24h 价格接受 | [#20](https://github.com/shaojie-li/stocks-marketing/issues/20) | `DONE` |
+| M2 | T-011 | 建立真实降级全局分析与非入场安全门 | [#22](https://github.com/shaojie-li/stocks-marketing/issues/22) | `IN PROGRESS` |
 
 ## 5. 暂不进入关键路径
 
