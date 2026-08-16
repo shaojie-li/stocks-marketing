@@ -15,8 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "testdata" / "global-analysis" / "v1"
 DATA_SOURCE_FIXTURES = ROOT / "testdata" / "data-sources" / "hyperliquid"
 DART_FIXTURES = ROOT / "testdata" / "data-sources" / "dart"
+OPENDART_FIXTURES = ROOT / "testdata" / "data-sources" / "opendart"
 STATE_ORDER = ["WEAK", "IMPROVING", "CONFIRMED", "STRONG", "PERSISTENT_STRONG"]
-RULE_VERSION = "global-analysis/1.5.0"
+RULE_VERSION = "global-analysis/1.6.0"
 
 
 class ValidationError(Exception):
@@ -230,6 +231,23 @@ def validate_dart_live_fixture() -> None:
     require(item.findtext("dc:date", namespaces=namespaces) == "2026-08-14T07:44:00Z", "DART RSS fixture UTC 时间错误")
 
 
+def validate_opendart_fundamental_live_fixture() -> None:
+    fixture = load_json(OPENDART_FIXTURES / "t013-skhy-fundamental-live-check.json")
+    require(fixture["source"] == "OpenDART official API", "Fundamental live fixture 来源错误")
+    require(fixture["corp_code"] == "00164779" and fixture["target_symbol"] == "xyz:SKHY", "Fundamental live fixture 身份错误")
+    report = fixture["report"]
+    require(report["report_code"] == "11012" and report["fs_div"] == "CFS", "Fundamental 必须使用最终半年度 CFS")
+    require(re.fullmatch(r"[0-9]{14}", report["receipt_no"]) is not None, "Fundamental receipt_no 无效")
+    responses = fixture["responses"]
+    hashes = [responses[key] for key in ("list_sha256", "financials_sha256", "prior_financials_sha256", "document_zip_sha256")]
+    require(all(re.fullmatch(r"[0-9a-f]{64}", value) is not None for value in hashes), "Fundamental live fixture 缺少响应哈希")
+    result = fixture["result"]
+    require(result["availability"] == "AVAILABLE" and result["coverage_pct"] == 90, "Fundamental live fixture 覆盖门错误")
+    require(result["available_components"] == 5 and result["unavailable_components"] == ["regulatory_customer_event_risk"], "Fundamental 不得补齐未证明风险")
+    safety = fixture["safety"]
+    require(not any(safety.values()), "Fundamental live check 不得记录密钥或调用写操作")
+
+
 def validate_price_structure_boundaries() -> None:
     fixture = load_json(FIXTURES / "price-structure-boundaries.json")
     require(fixture["rule_version"] == RULE_VERSION, "Price Structure 向量规则版本错误")
@@ -348,6 +366,7 @@ def main() -> int:
         validate_skhy_daily_live_fixture()
         validate_crowding_live_fixture()
         validate_dart_live_fixture()
+        validate_opendart_fundamental_live_fixture()
         validate_relative_strength_boundaries()
         validate_price_structure_boundaries()
         validate_crowding_boundaries()

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const GlobalAnalysisRuleVersion = "global-analysis/1.5.0"
+const GlobalAnalysisRuleVersion = "global-analysis/1.6.0"
 
 type AnalysisIdentity struct {
 	RuleVersion  string `json:"rule_version"`
@@ -24,6 +24,7 @@ type AnalysisIdentity struct {
 }
 
 type UnavailableSignals struct {
+	Fundamental    string `json:"fundamental"`
 	PriceStructure string `json:"skhy_price_structure"`
 	ForeignFlow    string `json:"skhy_foreign_flow"`
 	Catalyst       string `json:"catalyst"`
@@ -45,6 +46,7 @@ type AnalysisBundle struct {
 	PriceStructure PriceStructure        `json:"price_structure"`
 	Catalyst       CatalystEvaluation    `json:"catalyst"`
 	Crowding       Crowding              `json:"crowding"`
+	Fundamental    Fundamental           `json:"fundamental"`
 	Trend          TrendScore            `json:"trend"`
 	Unavailable    UnavailableSignals    `json:"unavailable"`
 	MemoryDay      MemoryDayResult       `json:"memory_day"`
@@ -61,6 +63,7 @@ type AnalysisBundleInput struct {
 	PriceStructure PriceStructure
 	Catalyst       CatalystEvaluation
 	Crowding       Crowding
+	Fundamental    Fundamental
 	PreviousTrend  *TrendScore
 	PreviousMemory *MemoryTrendTransition
 }
@@ -138,6 +141,13 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	if err := normalizeCrowding(&crowding, input.PrimaryAsset, asOf); err != nil {
 		return AnalysisBundle{}, err
 	}
+	fundamental := input.Fundamental
+	if fundamental.Availability == "" {
+		fundamental = UnavailableFundamental(input.PrimaryAsset, FundamentalReasonInsufficientCoverage)
+	}
+	if err := normalizeFundamental(&fundamental, input.PrimaryAsset, asOf); err != nil {
+		return AnalysisBundle{}, err
+	}
 	trend, err := CalculateTrendScore(TrendScoreInput{
 		Indicators: indicators, Phase: input.Phase, PriceStructure: priceStructure.State,
 		PriceStructureRefs: priceStructure.EvidenceRefs, Previous: input.PreviousTrend,
@@ -179,9 +189,10 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 		PriceStructure PriceStructure         `json:"price_structure"`
 		Catalyst       CatalystEvaluation     `json:"catalyst"`
 		Crowding       Crowding               `json:"crowding"`
+		Fundamental    Fundamental            `json:"fundamental"`
 		PreviousTrend  *TrendScore            `json:"previous_trend,omitempty"`
 		PreviousMemory *MemoryTrendTransition `json:"previous_memory,omitempty"`
-	}{identity, input.AsOf, observations, priceStructure, catalyst, crowding, input.PreviousTrend, input.PreviousMemory}
+	}{identity, input.AsOf, observations, priceStructure, catalyst, crowding, fundamental, input.PreviousTrend, input.PreviousMemory}
 	canonical, err := json.Marshal(hashInput)
 	if err != nil {
 		return AnalysisBundle{}, errors.New("encode analysis bundle input")
@@ -189,8 +200,9 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	digest := sha256.Sum256(canonical)
 	return AnalysisBundle{
 		Identity: identity, AsOf: input.AsOf, InputHash: hex.EncodeToString(digest[:]), Observations: observations,
-		Indicators: indicators, PriceStructure: priceStructure, Catalyst: catalyst, Crowding: crowding, Trend: trend,
+		Indicators: indicators, PriceStructure: priceStructure, Catalyst: catalyst, Crowding: crowding, Fundamental: fundamental, Trend: trend,
 		Unavailable: UnavailableSignals{
+			Fundamental:    fundamental.Availability,
 			PriceStructure: priceStructure.Availability,
 			ForeignFlow:    AvailabilityUnavailable,
 			Catalyst:       catalyst.Availability,

@@ -40,10 +40,12 @@ T-010 DART 损失披露 Catalyst 的 24h 价格接受（DONE）
                                       ↓
 T-011 真实降级全局分析与非入场安全门（DONE）
                                       ↓
-T-012 Hyperliquid SKHY Crowding 与历史充足性门（IN PROGRESS）
+T-012 Hyperliquid SKHY Crowding 与历史充足性门（DONE）
+                                      ↓
+T-013 OpenDART SK hynix Fundamental（DONE）
 ```
 
-T-001 至 T-011 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径、可审计的同窗口指标、确定性的 Trend Score 和 Memory 状态迁移、不可变 Analysis Bundle 与可比历史、可在历史充足后自动启用的 SKHY 连续合约日线价格结构、DART 官方损失披露的 24 小时价格接受，以及真实降级分析的非入场安全门。T-009 对 KRX Foreign Flow 作出 `NO-GO` 决策：当前没有同时满足字段覆盖、稳定自动化和 Discord 输出授权的数据路径，因此不实施。
+T-001 至 T-013 已完成，形成规则契约、Hyperliquid 数据边界、可运行的最小垂直链路、带 Eligibility Gate 的真实行情快路径、可审计的同窗口指标、确定性的 Trend Score 和 Memory 状态迁移、不可变 Analysis Bundle 与可比历史、可在历史充足后自动启用的 SKHY 连续合约日线价格结构、DART 官方损失披露的 24 小时价格接受、OpenDART 正式报告 Fundamental，以及真实降级分析的非入场安全门。T-009 对 KRX Foreign Flow 作出 `NO-GO` 决策：当前没有同时满足字段覆盖、稳定自动化和 Discord 输出授权的数据路径，因此不实施。
 
 ## 4. 稳定任务索引
 
@@ -60,7 +62,8 @@ T-001 至 T-011 已完成，形成规则契约、Hyperliquid 数据边界、可�
 | M2 | T-009 | 验证官方 Foreign Flow 数据覆盖与授权边界 | [#18](https://github.com/shaojie-li/stocks-marketing/issues/18) | `DONE / NO-GO` |
 | M2 | T-010 | 评估 DART 损失披露 Catalyst 的 24h 价格接受 | [#20](https://github.com/shaojie-li/stocks-marketing/issues/20) | `DONE` |
 | M2 | T-011 | 建立真实降级全局分析与非入场安全门 | [#22](https://github.com/shaojie-li/stocks-marketing/issues/22) | `DONE` |
-| M2 | T-012 | 计算 Hyperliquid SKHY Crowding 并显式降级不足历史 | [#24](https://github.com/shaojie-li/stocks-marketing/issues/24) | `IN PROGRESS` |
+| M2 | T-012 | 计算 Hyperliquid SKHY Crowding 并显式降级不足历史 | [#24](https://github.com/shaojie-li/stocks-marketing/issues/24) | `DONE` |
+| M2 | T-013 | 验证并计算 OpenDART SK hynix Fundamental | [#26](https://github.com/shaojie-li/stocks-marketing/issues/26) | `DONE` |
 
 ## 5. 暂不进入关键路径
 
@@ -71,3 +74,5 @@ T-001 至 T-011 已完成，形成规则契约、Hyperliquid 数据边界、可�
 - 全球全部股票、新闻与产业数据源；
 - 未验证授权的数据抓取或二次分发；
 - 未冻结规则前的开盘、收盘、隔夜、周末和周一预期报告实现。
+
+M2 后续仍需完成完整 Entry/确认链，以及真实 Bundle→AI→Discord 闭环；Fundamental 单项可用不改变当前 `NO_TRADE / SHADOW_ONLY` 边界。

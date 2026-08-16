@@ -1,7 +1,7 @@
 # 全局交易分析契约
 
-状态：Frozen v1.5.0
-规则版本：`global-analysis/1.5.0`
+状态：Frozen v1.6.0
+规则版本：`global-analysis/1.6.0`
 更新日期：2026-08-16
 
 ## 1. 目标与边界
@@ -269,6 +269,10 @@ Fundamental 衡量中期经营和产业事实，不使用短线价格。组件�
 
 规范化事实由版本化事件规则映射为 `STRONG_NEGATIVE`、`NEGATIVE`、`NEUTRAL`、`POSITIVE`、`STRONG_POSITIVE`，分别获得该组件权重的 `0%`、`25%`、`50%`、`75%`、`100%`。`STRONG_POSITIVE` 至少需要两个相互独立的一手证据，或一个一手证据加一个已经实现的实际经营结果；只有分析师预测时最高为 `POSITIVE`，只有 Rumor 时组件不可用。没有对应事件映射规则时组件为 `null`，禁止模型临时选择档位。
 
+T-013 的首个真实输入只使用 OpenDART SK hynix 最新最终定期报告：报告列表使用 `last_reprt_at=Y`，财务数值只接受同接收号 CFS 的标准账户 ID 与 KRW，定性事实只在“主要产品价格变动”窄章节内匹配已实现的 HBM/AI server DRAM 销售、出货和 DRAM/NAND ASP 方向。供给纪律比较相同报告期的 `inventory / cumulative revenue` 与 `PPE purchases / operating cash flow`；盈利比较累计 revenue 与 operating margin；资产负债比较现金减短长借款及 CapEx 的经营现金流覆盖。分母非正、账户重复/缺失、正文段落缺失、更正冲突或响应异常时对应组件不可用。
+
+当前五个组件可用权重为 9/10，监管、客户集中与事件风险保持 `UNAVAILABLE / NO_DETERMINISTIC_RULE`，因为没有事件披露不等于没有风险。事实状态为 `REPORTED`，整体按可用权重归一化，Confidence 上限为 `MEDIUM`。OpenDART 认证键只以加密 `app_settings` 保存；Newsroom、媒体、搜索、截图和 LLM 不作为回退。规则版本为 `fundamental/1.0.0`，全局规则提升为 `global-analysis/1.6.0`。
+
 ### 8.3 Trend Score
 
 Trend 只衡量趋势质量，与是否值得追价分开：
@@ -431,6 +435,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 - `global-analysis/1.3.0`：冻结 DART SK hynix 衍生品交易损失 Catalyst、`xyz:SKHY`/`xyz:SMSN` 的 `CATALYST_24H` 同锚点窗口及价格接受状态，并把完整 Catalyst Evaluation 接入 Analysis Bundle 输入哈希。
 - `global-analysis/1.4.0`：冻结降级分析的 `OBSERVE/WAIT + NO_TRADE + SHADOW_ONLY` 安全门、方向感知的 Catalyst Entry 语义，以及正式投递前的 fail-closed 校验。
 - `global-analysis/1.5.0`：冻结 Hyperliquid `xyz:SKHY` funding/premium、日线延伸与量能 Crowding，明确历史 OI 不可回补、至少 4 项覆盖门和 Crowding 单项不得绕过 Entry 安全门。
+- `global-analysis/1.6.0`：冻结 OpenDART 最终定期报告 Fundamental 五组件、90% 覆盖门、监管/客户风险不可用和 TLS 兼容边界。
 
 ## 14. 验证资产
 

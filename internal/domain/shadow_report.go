@@ -27,6 +27,7 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 		"trend":                                "ev-trend",
 		"catalyst":                             "ev-catalyst",
 		"crowding":                             "ev-crowding",
+		"fundamental":                          "ev-fundamental",
 	}
 	evidence := make([]any, 0, 9)
 	for _, name := range []string{IndicatorMemoryRelativeStrength, IndicatorSemiconductorRelativeStrength, IndicatorAIComputeRotation, IndicatorSKHYSectorAlpha, IndicatorSKHYMarketAlpha} {
@@ -58,6 +59,11 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 			evidenceIDs["crowding"], "CROWDING", bundle.AsOf, []string{bundle.Identity.PrimaryAsset},
 			fmt.Sprintf("Crowding 由五项确定性输入评估：%d 项可用，%d 项触发。", bundle.Crowding.AvailableInputs, bundle.Crowding.TriggerCount),
 		))
+	}
+	fundamentalRefs := []string{}
+	if bundle.Fundamental.Availability == AvailabilityAvailable {
+		fundamentalRefs = []string{evidenceIDs["fundamental"]}
+		evidence = append(evidence, map[string]any{"evidence_id": evidenceIDs["fundamental"], "category": "FUNDAMENTAL", "fact_status": "REPORTED", "summary": "OpenDART 正式定期报告由确定性规则映射为 Fundamental Score。", "source": "opendart", "source_tier": "OFFICIAL", "published_at": bundle.Fundamental.PublishedAt, "event_at": bundle.Fundamental.PeriodEnd + "T00:00:00Z", "original_source": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + bundle.Fundamental.ReceiptNo, "importance": "HIGH", "numeric_context": nil, "affected_assets": []string{bundle.Identity.PrimaryAsset}})
 	}
 	trendComponents := make([]any, 0, len(bundle.Trend.Components))
 	for _, component := range bundle.Trend.Components {
@@ -95,7 +101,10 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 			"source_tier": observation.SourceTier, "freshness": observation.Freshness, "adjustment": observation.Adjustment,
 		})
 	}
-	missing := []string{"scores.fundamental", "scores.entry", "foreign_flow"}
+	missing := []string{"scores.entry", "foreign_flow"}
+	if bundle.Fundamental.Availability != AvailabilityAvailable {
+		missing = append(missing, "scores.fundamental")
+	}
 	if bundle.Crowding.Availability != AvailabilityAvailable {
 		missing = append(missing, "crowding")
 	}
@@ -109,7 +118,7 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 		"phase": "GLOBAL", "primary_asset": bundle.Identity.PrimaryAsset, "as_of": bundle.AsOf,
 		"window": map[string]any{"type": bundle.Identity.WindowType, "start": bundle.Identity.WindowStart, "end": bundle.Identity.WindowEnd, "baseline": "CONTINUOUS_24H_PRICE"},
 		"scores": map[string]any{
-			"fundamental": unavailableScore(fundamentalShadowComponents()),
+			"fundamental": shadowFundamentalScore(bundle.Fundamental, fundamentalRefs),
 			"trend":       map[string]any{"value": trendValue, "direction": reportDirection(bundle.Trend.Direction), "coverage_pct": bundle.Trend.CoveragePct, "confidence": bundle.Trend.ConfidenceMax, "components": trendComponents},
 			"entry":       shadowEntryScore(bundle.Crowding, crowdingRefs),
 		},
@@ -167,6 +176,23 @@ func fundamentalShadowComponents() []any {
 		name   string
 		weight int
 	}{{"ai_hbm_server_demand", 2}, {"memory_pricing_cycle", 2}, {"supply_discipline", 2}, {"earnings_guidance_revisions", 2}, {"balance_sheet_capex_execution", 1}, {"regulatory_customer_event_risk", 1}})
+}
+
+func shadowFundamentalScore(fundamental Fundamental, refs []string) map[string]any {
+	if fundamental.Availability != AvailabilityAvailable {
+		return unavailableScore(fundamentalShadowComponents())
+	}
+	value, _ := optionalReportNumber(fundamental.Value)
+	components := make([]any, 0, len(fundamental.Components))
+	for _, component := range fundamental.Components {
+		componentValue, _ := optionalReportNumber(component.Value)
+		componentRefs := []string{}
+		if component.Availability == AvailabilityAvailable {
+			componentRefs = refs
+		}
+		components = append(components, map[string]any{"name": component.Name, "weight": component.Weight, "value": componentValue, "evidence_refs": componentRefs})
+	}
+	return map[string]any{"value": value, "direction": "UNAVAILABLE", "coverage_pct": fundamental.CoveragePct, "confidence": fundamental.ConfidenceMax, "components": components}
 }
 
 func entryShadowComponents() []any {
