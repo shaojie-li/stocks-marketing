@@ -172,6 +172,94 @@ func (c *Client) SKHYPriceStructure(ctx context.Context, symbol string, asOf tim
 	}), nil
 }
 
+func (c *Client) SKHYCrowding(ctx context.Context, symbol string, asOf time.Time) (domain.Crowding, error) {
+	if symbol != "xyz:SKHY" {
+		return domain.Crowding{}, errors.New("Crowding requires xyz:SKHY")
+	}
+	asOf = asOf.UTC()
+	if asOf.IsZero() {
+		return domain.Crowding{}, errors.New("Crowding requires as_of")
+	}
+	input := domain.CrowdingInput{Symbol: symbol, AsOf: asOf.Format(time.RFC3339Nano)}
+
+	var contextRaw json.RawMessage
+	if err := c.post(ctx, map[string]any{"type": "metaAndAssetCtxs", "dex": dexFor([]string{symbol})}, &contextRaw); err == nil {
+		if contexts, parseErr := ParseMetaAndAssetContexts(contextRaw); parseErr == nil {
+			for _, asset := range contexts {
+				if asset.Symbol == symbol {
+					input.CurrentOpenInterest = asset.OpenInterest
+					digest := sha256.Sum256(contextRaw)
+					input.OIEvidenceRefs = []string{fmt.Sprintf("hyperliquid:metaAndAssetCtxs:%s:sha256:%x", symbol, digest)}
+					break
+				}
+			}
+		}
+	}
+
+	input.FundingHistory, input.FundingEvidenceRefs, input.FundingReason = c.crowdingFundingHistory(ctx, symbol, asOf)
+	input.DailyBars, input.DailyEvidenceRefs, input.DailyReason = c.crowdingDailyBars(ctx, symbol, asOf)
+	return domain.CalculateCrowding(input), nil
+}
+
+func (c *Client) crowdingFundingHistory(ctx context.Context, symbol string, asOf time.Time) ([]domain.CrowdingFundingSample, []string, string) {
+	const maxFundingPages = 3
+	latestExpected := asOf.Truncate(time.Hour)
+	if !latestExpected.Before(asOf) {
+		latestExpected = latestExpected.Add(-time.Hour)
+	}
+	cursor := latestExpected.Add(-719 * time.Hour).UnixMilli()
+	history := make([]domain.CrowdingFundingSample, 0, 720)
+	refs := make([]string, 0, 2)
+	for page := 0; page < maxFundingPages; page++ {
+		var raw json.RawMessage
+		payload := map[string]any{"type": "fundingHistory", "coin": symbol, "startTime": cursor, "endTime": asOf.UnixMilli()}
+		if err := c.post(ctx, payload, &raw); err != nil {
+			return nil, refs, domain.CrowdingReasonSourceError
+		}
+		samples, err := ParseFundingHistory(raw, symbol)
+		if err != nil {
+			return nil, refs, domain.CrowdingReasonInvalidHistory
+		}
+		digest := sha256.Sum256(raw)
+		refs = append(refs, fmt.Sprintf("hyperliquid:fundingHistory:%s:sha256:%x", symbol, digest))
+		history = append(history, samples...)
+		if len(samples) < 500 {
+			return history, refs, ""
+		}
+		last, err := time.Parse(time.RFC3339Nano, samples[len(samples)-1].Time)
+		if err != nil || last.UnixMilli()+1 <= cursor {
+			return nil, refs, domain.CrowdingReasonInvalidHistory
+		}
+		cursor = last.UnixMilli() + 1
+	}
+	return nil, refs, domain.CrowdingReasonInvalidHistory
+}
+
+func (c *Client) crowdingDailyBars(ctx context.Context, symbol string, asOf time.Time) ([]domain.DailyPriceBar, []string, string) {
+	var raw json.RawMessage
+	payload := map[string]any{
+		"type": "candleSnapshot",
+		"req":  map[string]any{"coin": symbol, "interval": "1d", "startTime": int64(0), "endTime": asOf.UnixMilli()},
+	}
+	if err := c.post(ctx, payload, &raw); err != nil {
+		return nil, nil, domain.CrowdingReasonSourceError
+	}
+	candles, err := ParseCandles(raw, symbol, "1d")
+	if err != nil {
+		return nil, nil, domain.CrowdingReasonInvalidHistory
+	}
+	bars := make([]domain.DailyPriceBar, len(candles))
+	for index, candle := range candles {
+		bars[index] = domain.DailyPriceBar{
+			Symbol: candle.Symbol, Interval: candle.Interval,
+			OpenTime: candle.OpenTime.Format(time.RFC3339Nano), CloseTime: candle.CloseTime.Format(time.RFC3339Nano),
+			Open: candle.Open, Close: candle.Close, High: candle.High, Low: candle.Low, Volume: candle.Volume,
+		}
+	}
+	digest := sha256.Sum256(raw)
+	return bars, []string{fmt.Sprintf("hyperliquid:candleSnapshot:%s:1d:sha256:%x", symbol, digest)}, ""
+}
+
 func (c *Client) Snapshot(ctx context.Context, symbols []string, generation uint64, receivedAt time.Time) ([]market.Snapshot, error) {
 	var raw json.RawMessage
 	if err := c.post(ctx, map[string]any{"type": "metaAndAssetCtxs", "dex": dexFor(symbols)}, &raw); err != nil {

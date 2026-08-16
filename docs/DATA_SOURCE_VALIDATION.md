@@ -199,6 +199,18 @@ AI 浏览器或模型视觉识别不构成例外：定时让 AI 打开统计网�
 
 SK hynix Newsroom 的现行 Terms 只允许非商业使用，并明确禁止 robot、spider 或其他自动设备访问站点以监控或复制材料。即使 Press RSS 技术上可读，也不能作为本项目的后台生产来源；AI 自动打开网页同样属于自动化获取，不能绕过该限制。
 
+### 10.3 Hyperliquid Crowding 覆盖
+
+2026-08-16 按 T-012 复核官方公共 Info API 与 `xyz:SKHY` 真实响应：
+
+- `fundingHistory` 返回 `coin`、`fundingRate`、`premium` 和毫秒 `time`；资金费用每小时结算。时间范围响应最多 500 条，30 日窗口必须分页。本次从 2026-07-16 起读取两页，分别为 500 与 256 条，所有记录 symbol 一致且 premium 非空。
+- `metaAndAssetCtxs` 当前响应同时提供 `funding`、`premium`、`openInterest`、`dayNtlVlm`、`dayBaseVlm`、oracle 和 mark。它没有历史 OI、来源 oracle 自身采样时间或 5 日增长字段，因此只能保存当前 OI 事实，不能计算 OI Crowding。
+- `candleSnapshot` 的 `1d` 返回 OHLC、成交量、成交笔数和开闭时间。本次共 39 根，其中最后一根仍形成，只有 38 根完成；20 日 volume 可计算，但 50 根 price extension 历史仍不足。
+
+因此当前真实覆盖是 funding、premium、volume 三项可用，price extension 与历史 OI 两项不可用；Crowding 必须返回 `UNAVAILABLE / INSUFFICIENT_INPUTS`，不能输出 `LOW`。日线累计到 50 根后可以由四项真实输入自动启用。官方历史 S3 约月度上传、不保证及时或完整且由请求方承担传输费用，不作为本阶段生产历史 OI 来源。
+
+现场检查只保存必要字段投影、计数、时间边界和响应 SHA-256，不保存或再分发完整 funding/candle 数组。raw redistribution 继续标记 `UNCONFIRMED`。Foreign Flow 仍是独立的 `NO-GO` 信号，禁止由 funding、premium、OI、成交量或价格延伸反推。
+
 ## 11. 可重放验证
 
 公共只读探针只依赖 Python 标准库，不读取账户、地址、token 或 header：
@@ -218,13 +230,14 @@ T-004 增加 Go 运行时验证：REST 的 metadata/context 只按同一响应�
 go run ./cmd/market-check
 go run ./cmd/indicator-check
 go run ./cmd/catalyst-check
+go run ./cmd/crowding-check
 ```
 
 探针实时复核版本化映射、退市、OI、mark/oracle、双边盘口和 OI cap。429、超时、断线与 stale 的降级策略由确定性 fixture 校验；不以破坏公共服务或等待真实故障作为验收手段。
 
 ## 12. 结论
 
-T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid 映射；非核心 USDKRW、DXY 和美债收益率当前不可用，依赖它们的阶段停止处理而不补源。T-008 已证明 SKHY 连续合约日线接口可用，但截至 2026-08-15 已完成历史仍少于 EMA50 门槛，Price Structure 必须暂时降级。T-010 已证明 DART 首次损失披露可与 Hyperliquid 双资产完整 24 小时窗口组成确定性 Catalyst，但该能力只覆盖一个报告类型和最近 5 个营业日 feed。所有可用性均须在运行时重新发现和过 Gate，本次快照不构成永久保证。
+T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid 映射；非核心 USDKRW、DXY 和美债收益率当前不可用，依赖它们的阶段停止处理而不补源。T-008 已证明 SKHY 连续合约日线接口可用，但截至 2026-08-16 已完成历史仍少于 EMA50 门槛，Price Structure 和 Crowding price extension 必须暂时降级。T-010 已证明 DART 首次损失披露可与 Hyperliquid 双资产完整 24 小时窗口组成确定性 Catalyst，但该能力只覆盖一个报告类型和最近 5 个营业日 feed。T-012 已证明 funding、premium 和 20 日 volume 可用，但历史 OI 没有公共 endpoint；当前 Crowding 仍不足 4 项。所有可用性均须在运行时重新发现和过 Gate，本次快照不构成永久保证。
 
 ## 13. 官方参考
 
@@ -232,6 +245,8 @@ T-002 的数据源边界可冻结：六个核心指标存在统一 Hyperliquid �
 - [Hyperliquid Perpetuals API](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals)
 - [Hyperliquid WebSocket subscriptions](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions)
 - [Hyperliquid rate limits](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits)
+- [Hyperliquid historical data](https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data)
+- [Hyperliquid funding](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding)
 - [Hyperliquid WebSocket](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket)
 - [Hyperliquid WebSocket timeouts and heartbeats](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/timeouts-and-heartbeats)
 - [trade.xyz Specification Index](https://docs.trade.xyz/consolidated-resources/specification-index)

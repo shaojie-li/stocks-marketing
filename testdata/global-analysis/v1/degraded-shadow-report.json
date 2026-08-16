@@ -78,9 +78,11 @@
   },
   "crowding": {
     "availability": "UNAVAILABLE",
-    "available_inputs": 0,
+    "available_inputs": 3,
     "direction": null,
-    "evidence_refs": [],
+    "evidence_refs": [
+      "ev-crowding"
+    ],
     "state": null,
     "trigger_count": 0
   },
@@ -234,6 +236,22 @@
       "source": "domain-engine",
       "source_tier": "DERIVED",
       "summary": "DART 官方事件及其 24 小时价格接受由确定性规则评估。"
+    },
+    {
+      "affected_assets": [
+        "xyz:SKHY"
+      ],
+      "category": "CROWDING",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-crowding",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "Crowding 由五项确定性输入评估：3 项可用，0 项触发。"
     }
   ],
   "foreign_flow": {
@@ -443,7 +461,7 @@
   "phase": "GLOBAL",
   "primary_asset": "xyz:SKHY",
   "prompt_version": "shadow-deterministic/1.0.0",
-  "rule_version": "global-analysis/1.4.0",
+  "rule_version": "global-analysis/1.5.0",
   "schema_version": "1.0.0",
   "scores": {
     "entry": {

@@ -1,8 +1,8 @@
 # 全局交易分析契约
 
-状态：Frozen v1.4.0
-规则版本：`global-analysis/1.4.0`
-更新日期：2026-08-15
+状态：Frozen v1.5.0
+规则版本：`global-analysis/1.5.0`
+更新日期：2026-08-16
 
 ## 1. 目标与边界
 
@@ -10,7 +10,7 @@
 
 当前系统提供可追溯的 Discord 决策辅助，不连接钱包、券商私有交易接口或自动下单。模型只解释已经计算的事实、证据和状态，不负责计算权威数值、补齐缺失数据或改变确定性结论。
 
-为消除原始规则中的歧义，v1.4 做出以下决定：
+为消除原始规则中的歧义，v1.5 做出以下决定：
 
 - 最终报告必须同时输出 Fundamental、Trend、Entry 三个 Score。
 - `SKHY Alpha` 拆为 `SKHY Sector Alpha` 和 `SKHY Market Alpha`，不再使用含义不明的合成字段。
@@ -230,6 +230,17 @@ Crowding 使用交易拥挤证据，不使用新闻数量。v1 维护五个输�
 
 至少 4 个输入可用才计算状态，否则 `availability = UNAVAILABLE`。方向由 funding、premium 和价格延伸方向的多数决定为 `LONG`、`SHORT` 或 `MIXED`；状态与方向分开保存。
 
+T-012 将首个真实切片冻结为主资产 `xyz:SKHY`，所有数据只来自 Hyperliquid 公共官方 API：
+
+- funding 使用截至 `as_of` 的最近 720 个连续已结算小时样本；当前值取最新样本，经验百分位为“绝对值小于或等于当前绝对值的样本数 / 720 × 100”。API 每个时间范围最多返回 500 条，客户端使用最后时间戳加 1 毫秒继续分页，并限制最多 3 页；游标不前进、小时桶重复/间断/乱序、字段非法或最新样本距 `as_of` 超过 90 分钟时该项不可用。
+- premium 使用同一组 720 小时记录中的 `premium`，公式、窗口和完整性门与 funding 相同。两项保留当前有符号值；正值投 `LONG`，负值投 `SHORT`，零不投票。
+- OI 公共 API 只提供当前 `openInterest`，没有 5 日增长的历史 endpoint。当前 OI 只作为来源事实保存；5 日增长与过去 60 个有效观察日 percentile 固定为 `UNAVAILABLE / HISTORICAL_OI_UNAVAILABLE`，不得补零。官方 S3 归档约月度更新、可能缺失且 requester-pays，不承担本阶段生产当前性。
+- price extension 复用至少 50 根连续、已完成的 `xyz:SKHY` UTC `1d` candle，以及 8.3.1 相同的 EMA20 和 Wilder ATR14；保存有符号 `(close - EMA20) / ATR14`，绝对值达到 1.5 时触发，正负分别投 `LONG` / `SHORT`。
+- volume 使用最近 20 根连续、已完成且成交量为正的 UTC `1d` candle；以最新完成日成交量在这 20 根中的同一经验百分位计算，达到 75 时触发。形成中的 candle、零成交量、间断序列或缺少最近应完成 UTC 日线时不能进入计算；后者将日线组件标记为 `STALE`。
+- `LONG` 或 `SHORT` 必须在 funding、premium、price extension 三票中取得至少两票；否则为 `MIXED`。Crowding 整体不足 4 项时不输出 state 或 direction，但保留每个组件的 availability、reason、窗口、派生值和 Evidence refs。
+
+Crowding 进入 Analysis Bundle 和输入哈希。可用时只填充 Entry 的 Crowding 组件（名义覆盖 20%）；完整 Entry 覆盖仍低于 70%，所以 T-011 的 `OBSERVE/WAIT + NO_TRADE + SHADOW_ONLY` 和正式投递 fail-closed 门保持不变。
+
 ## 8. 三个 Score
 
 ### 8.1 通用规则
@@ -419,6 +430,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 - `global-analysis/1.2.0`：冻结 `xyz:SKHY` UTC 连续合约日线的 EMA20、EMA50、Wilder ATR14、先前 20 日支撑与历史充足性门，并把可用 Price Structure 接入 Analysis Bundle 和 Trend Score。
 - `global-analysis/1.3.0`：冻结 DART SK hynix 衍生品交易损失 Catalyst、`xyz:SKHY`/`xyz:SMSN` 的 `CATALYST_24H` 同锚点窗口及价格接受状态，并把完整 Catalyst Evaluation 接入 Analysis Bundle 输入哈希。
 - `global-analysis/1.4.0`：冻结降级分析的 `OBSERVE/WAIT + NO_TRADE + SHADOW_ONLY` 安全门、方向感知的 Catalyst Entry 语义，以及正式投递前的 fail-closed 校验。
+- `global-analysis/1.5.0`：冻结 Hyperliquid `xyz:SKHY` funding/premium、日线延伸与量能 Crowding，明确历史 OI 不可回补、至少 4 项覆盖门和 Crowding 单项不得绕过 Entry 安全门。
 
 ## 14. 验证资产
 
@@ -427,6 +439,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 - Relative Strength 边界：[`relative-strength-boundaries.json`](../testdata/global-analysis/v1/relative-strength-boundaries.json)
 - Memory 状态迁移：[`memory-state-transitions.json`](../testdata/global-analysis/v1/memory-state-transitions.json)
 - Price Structure 边界：[`price-structure-boundaries.json`](../testdata/global-analysis/v1/price-structure-boundaries.json)
+- Crowding 边界：[`crowding-boundaries.json`](../testdata/global-analysis/v1/crowding-boundaries.json)
 
 Schema 使用 JSON Schema Draft-07。仓库通过以下命令执行确定性语义检查与固定版本的 Schema 校验：
 

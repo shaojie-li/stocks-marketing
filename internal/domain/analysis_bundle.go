@@ -5,12 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"reflect"
 	"slices"
 	"time"
 )
 
-const GlobalAnalysisRuleVersion = "global-analysis/1.4.0"
+const GlobalAnalysisRuleVersion = "global-analysis/1.5.0"
 
 type AnalysisIdentity struct {
 	RuleVersion  string `json:"rule_version"`
@@ -26,6 +27,7 @@ type UnavailableSignals struct {
 	PriceStructure string `json:"skhy_price_structure"`
 	ForeignFlow    string `json:"skhy_foreign_flow"`
 	Catalyst       string `json:"catalyst"`
+	Crowding       string `json:"crowding"`
 }
 
 type AnalysisQuality struct {
@@ -42,6 +44,7 @@ type AnalysisBundle struct {
 	Indicators     CoreIndicatorSet      `json:"indicators"`
 	PriceStructure PriceStructure        `json:"price_structure"`
 	Catalyst       CatalystEvaluation    `json:"catalyst"`
+	Crowding       Crowding              `json:"crowding"`
 	Trend          TrendScore            `json:"trend"`
 	Unavailable    UnavailableSignals    `json:"unavailable"`
 	MemoryDay      MemoryDayResult       `json:"memory_day"`
@@ -57,6 +60,7 @@ type AnalysisBundleInput struct {
 	Observations   []Observation
 	PriceStructure PriceStructure
 	Catalyst       CatalystEvaluation
+	Crowding       Crowding
 	PreviousTrend  *TrendScore
 	PreviousMemory *MemoryTrendTransition
 }
@@ -127,6 +131,13 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	if err := normalizeCatalystEvaluation(&catalyst, input.PrimaryAsset, asOf); err != nil {
 		return AnalysisBundle{}, err
 	}
+	crowding := input.Crowding
+	if crowding.Availability == "" {
+		crowding = UnavailableCrowding(input.PrimaryAsset, CrowdingReasonNotProvided)
+	}
+	if err := normalizeCrowding(&crowding, input.PrimaryAsset, asOf); err != nil {
+		return AnalysisBundle{}, err
+	}
 	trend, err := CalculateTrendScore(TrendScoreInput{
 		Indicators: indicators, Phase: input.Phase, PriceStructure: priceStructure.State,
 		PriceStructureRefs: priceStructure.EvidenceRefs, Previous: input.PreviousTrend,
@@ -167,9 +178,10 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 		Observations   []Observation          `json:"observations"`
 		PriceStructure PriceStructure         `json:"price_structure"`
 		Catalyst       CatalystEvaluation     `json:"catalyst"`
+		Crowding       Crowding               `json:"crowding"`
 		PreviousTrend  *TrendScore            `json:"previous_trend,omitempty"`
 		PreviousMemory *MemoryTrendTransition `json:"previous_memory,omitempty"`
-	}{identity, input.AsOf, observations, priceStructure, catalyst, input.PreviousTrend, input.PreviousMemory}
+	}{identity, input.AsOf, observations, priceStructure, catalyst, crowding, input.PreviousTrend, input.PreviousMemory}
 	canonical, err := json.Marshal(hashInput)
 	if err != nil {
 		return AnalysisBundle{}, errors.New("encode analysis bundle input")
@@ -177,11 +189,12 @@ func BuildAnalysisBundle(input AnalysisBundleInput) (AnalysisBundle, error) {
 	digest := sha256.Sum256(canonical)
 	return AnalysisBundle{
 		Identity: identity, AsOf: input.AsOf, InputHash: hex.EncodeToString(digest[:]), Observations: observations,
-		Indicators: indicators, PriceStructure: priceStructure, Catalyst: catalyst, Trend: trend,
+		Indicators: indicators, PriceStructure: priceStructure, Catalyst: catalyst, Crowding: crowding, Trend: trend,
 		Unavailable: UnavailableSignals{
 			PriceStructure: priceStructure.Availability,
 			ForeignFlow:    AvailabilityUnavailable,
 			Catalyst:       catalyst.Availability,
+			Crowding:       crowding.Availability,
 		},
 		MemoryDay: memoryDay, Memory: memory,
 		Quality: AnalysisQuality{DataFreshness: worstFreshness(observations), DataCompleteness: "MEDIUM", ConfidenceMax: ConfidenceLow},
@@ -271,6 +284,100 @@ func normalizePriceStructure(priceStructure *PriceStructure, primaryAsset string
 			return errors.New("invalid Price Structure decimal")
 		}
 		*value = parsed.FloatString(8)
+	}
+	return nil
+}
+
+func normalizeCrowding(crowding *Crowding, primaryAsset string, asOf time.Time) error {
+	if crowding.RuleVersion != CrowdingRuleVersion || crowding.Symbol != primaryAsset || len(crowding.Components) != 5 {
+		return errors.New("invalid Crowding identity")
+	}
+	names := []string{CrowdingInputFunding, CrowdingInputOpenInterest, CrowdingInputPremium, CrowdingInputPriceExtension, CrowdingInputVolume}
+	available, triggers := 0, 0
+	for index := range crowding.Components {
+		component := &crowding.Components[index]
+		if component.Name != names[index] {
+			return errors.New("invalid Crowding component order")
+		}
+		component.EvidenceRefs = slices.Clone(component.EvidenceRefs)
+		slices.Sort(component.EvidenceRefs)
+		if len(component.EvidenceRefs) > 0 && validateEvidenceRefs(component.EvidenceRefs) != nil {
+			return errors.New("invalid Crowding evidence")
+		}
+		if component.CurrentValue != "" {
+			value, err := parseDecimal(component.CurrentValue)
+			if err != nil {
+				return errors.New("invalid Crowding current value")
+			}
+			component.CurrentValue = value.FloatString(8)
+		}
+		if component.Availability != AvailabilityAvailable {
+			if component.Reason == "" || component.Triggered || component.Percentile != "" || component.WindowStart != "" || component.WindowEnd != "" || component.Direction != "" {
+				return errors.New("invalid unavailable Crowding component")
+			}
+			if component.Availability != AvailabilityUnavailable && component.Availability != AvailabilityStale {
+				return errors.New("invalid Crowding availability")
+			}
+			if component.Name != CrowdingInputOpenInterest && component.CurrentValue != "" {
+				return errors.New("unavailable Crowding component has a value")
+			}
+			continue
+		}
+		if component.Reason != "" || component.CurrentValue == "" || validateEvidenceRefs(component.EvidenceRefs) != nil {
+			return errors.New("invalid available Crowding component")
+		}
+		start, startErr := time.Parse(time.RFC3339Nano, component.WindowStart)
+		end, endErr := time.Parse(time.RFC3339Nano, component.WindowEnd)
+		if startErr != nil || endErr != nil || !start.Before(end) || end.After(asOf) {
+			return errors.New("invalid Crowding window")
+		}
+		component.WindowStart = start.UTC().Format(time.RFC3339Nano)
+		component.WindowEnd = end.UTC().Format(time.RFC3339Nano)
+		value, _ := parseDecimal(component.CurrentValue)
+		switch component.Name {
+		case CrowdingInputFunding, CrowdingInputPremium:
+			percentile, err := parseDecimal(component.Percentile)
+			if err != nil || percentile.Sign() < 0 || percentile.Cmp(big.NewRat(100, 1)) > 0 || component.Triggered != (percentile.Cmp(big.NewRat(75, 1)) >= 0) || component.Direction != directionFor(value) {
+				return errors.New("invalid Crowding percentile component")
+			}
+			component.Percentile = percentile.FloatString(8)
+		case CrowdingInputPriceExtension:
+			if component.Percentile != "" || component.Triggered != (absolute(value).Cmp(big.NewRat(3, 2)) >= 0) || component.Direction != directionFor(value) {
+				return errors.New("invalid Crowding extension")
+			}
+		case CrowdingInputVolume:
+			percentile, err := parseDecimal(component.Percentile)
+			if err != nil || percentile.Sign() < 0 || percentile.Cmp(big.NewRat(100, 1)) > 0 || component.Triggered != (percentile.Cmp(big.NewRat(75, 1)) >= 0) || component.Direction != "" {
+				return errors.New("invalid Crowding volume")
+			}
+			component.Percentile = percentile.FloatString(8)
+		default:
+			return errors.New("available historical OI is unsupported")
+		}
+		available++
+		if component.Triggered {
+			triggers++
+		}
+	}
+	if crowding.AvailableInputs != available || crowding.TriggerCount != triggers {
+		return errors.New("inconsistent Crowding coverage")
+	}
+	refs := crowdingEvidenceRefs(crowding.Components)
+	providedRefs := slices.Clone(crowding.EvidenceRefs)
+	slices.Sort(providedRefs)
+	if !slices.Equal(refs, providedRefs) {
+		return errors.New("inconsistent Crowding evidence")
+	}
+	crowding.EvidenceRefs = refs
+	if available < 4 {
+		if crowding.Availability != AvailabilityUnavailable || crowding.Reason == "" || crowding.State != "" || crowding.Direction != "" {
+			return errors.New("invalid unavailable Crowding")
+		}
+		return nil
+	}
+	extension := crowding.Component(CrowdingInputPriceExtension)
+	if crowding.Availability != AvailabilityAvailable || crowding.Reason != "" || crowding.State != crowdingState(triggers, extension.CurrentValue) || crowding.Direction != crowdingDirection(crowding.Component(CrowdingInputFunding).Direction, crowding.Component(CrowdingInputPremium).Direction, extension.Direction) {
+		return errors.New("inconsistent available Crowding")
 	}
 	return nil
 }

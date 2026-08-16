@@ -207,3 +207,27 @@ KRX Data Marketplace 网页展示股票和衍生品投资者交易实绩，KRX �
 - 系统可以更早用真实数据验证报告价值，同时保证数据不足只产生观察结论。
 - 降级报告与正式报告共享 Schema 和领域事实，不建立第二套分析规则；`NO_ENTRY` 只作为内部安全决策，机器报告继续复用 `OBSERVE + NO_TRADE`。
 - 后续 T-012 可以独立补 Crowding，提高 Entry 覆盖率，但不能绕过客观失效条件和正式投递门。
+
+## D-009 Crowding 使用可回放的 Hyperliquid 小时与日线证据
+
+- 状态：Accepted
+- 日期：2026-08-16
+- 关联：[T-012](https://github.com/shaojie-li/stocks-marketing/issues/24)
+
+### 背景
+
+Hyperliquid 公共 API 能提供 `xyz:SKHY` 当前 funding、premium、OI、日成交量以及历史 funding 和 candle，但没有历史 OI endpoint。Crowding 原规则需要五项输入并至少四项可用；若把当前 OI 当作 5 日增长、把不足历史当作零或把形成中日线与完整日线比较，会把数据覆盖问题伪装成低拥挤。
+
+### 决策
+
+- funding 与 premium 使用最近 720 个连续已结算小时记录及经验百分位；严格校验分页、symbol、时间、重复、间断和十进制字段。
+- price extension 与 volume 只使用连续、已完成的 `xyz:SKHY` UTC 日线；分别要求 50 根和 20 根历史。
+- 当前 OI 只保存为来源事实；5 日增长和 60 日 percentile 为 `HISTORICAL_OI_UNAVAILABLE`。不使用月度、可能缺失且 requester-pays 的 S3 归档承担当前生产信号，也不新增后台历史采集。
+- 少于四项可用时 Crowding 整体不输出状态，但保留组件原因和 Evidence。缺失不补零，也不从 Crowding 推断 Foreign Flow。
+- 规则版本提升为 `global-analysis/1.5.0`。Crowding 可用时只贡献 Entry 名义权重 2/10；完整 Entry 仍不可用，T-011 的 `NO_TRADE / SHADOW_ONLY` 保持不变。
+
+### 影响
+
+- 当前真实 funding、premium 和 20 日成交量可审计，但日线历史未达到 50 根且 OI 历史不可回补，所以现场结果仍应为 `UNAVAILABLE`，不是 `LOW`。
+- 日线自然累计到 50 根后，四项真实输入可使 Crowding 自动变为可用，无需第二价格源或规则变更。
+- 若未来需要 OI 输入，必须用独立任务建立连续 60 日采集、持久化、补洞和运行可靠性边界；不能在本切片预建未验证基础设施。

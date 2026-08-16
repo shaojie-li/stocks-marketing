@@ -61,6 +61,10 @@ func run() error {
 	if err != nil {
 		priceStructure = domain.UnavailablePriceStructure("xyz:SKHY", domain.PriceStructureReasonSourceError, 0, nil)
 	}
+	crowding, err := marketClient.SKHYCrowding(ctx, "xyz:SKHY", asOf)
+	if err != nil {
+		crowding = domain.UnavailableCrowding("xyz:SKHY", domain.CrowdingReasonSourceError)
+	}
 	selection, err := dart.NewClient(nil, dartConfig).LatestCatalyst(ctx, asOf)
 	if err != nil {
 		return err
@@ -84,7 +88,7 @@ func run() error {
 	bundle, err := domain.BuildAnalysisBundle(domain.AnalysisBundleInput{
 		Phase: "GLOBAL", PrimaryAsset: "xyz:SKHY", AsOf: asOf.Format(time.RFC3339Nano),
 		AsOfBucket: asOf.Truncate(time.Minute).Format(time.RFC3339Nano), Observations: observations,
-		PriceStructure: priceStructure, Catalyst: catalyst,
+		PriceStructure: priceStructure, Catalyst: catalyst, Crowding: crowding,
 	})
 	if err != nil {
 		return err

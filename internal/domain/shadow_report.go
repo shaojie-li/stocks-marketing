@@ -26,8 +26,9 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 		"cross_market":                         "ev-cross-market",
 		"trend":                                "ev-trend",
 		"catalyst":                             "ev-catalyst",
+		"crowding":                             "ev-crowding",
 	}
-	evidence := make([]any, 0, 8)
+	evidence := make([]any, 0, 9)
 	for _, name := range []string{IndicatorMemoryRelativeStrength, IndicatorSemiconductorRelativeStrength, IndicatorAIComputeRotation, IndicatorSKHYSectorAlpha, IndicatorSKHYMarketAlpha} {
 		indicator, ok := bundle.Indicators.Relative[name]
 		if !ok || indicator.Availability != AvailabilityAvailable {
@@ -49,6 +50,14 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 			"original_source": bundle.Catalyst.Event.OriginalSource, "importance": bundle.Catalyst.Event.Importance,
 			"numeric_context": nil, "affected_assets": bundle.Catalyst.Event.AffectedAssets,
 		})
+	}
+	crowdingRefs := []string{}
+	if len(bundle.Crowding.EvidenceRefs) > 0 {
+		crowdingRefs = []string{evidenceIDs["crowding"]}
+		evidence = append(evidence, derivedEvidence(
+			evidenceIDs["crowding"], "CROWDING", bundle.AsOf, []string{bundle.Identity.PrimaryAsset},
+			fmt.Sprintf("Crowding 由五项确定性输入评估：%d 项可用，%d 项触发。", bundle.Crowding.AvailableInputs, bundle.Crowding.TriggerCount),
+		))
 	}
 	trendComponents := make([]any, 0, len(bundle.Trend.Components))
 	for _, component := range bundle.Trend.Components {
@@ -86,7 +95,10 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 			"source_tier": observation.SourceTier, "freshness": observation.Freshness, "adjustment": observation.Adjustment,
 		})
 	}
-	missing := []string{"scores.fundamental", "scores.entry", "foreign_flow", "crowding"}
+	missing := []string{"scores.fundamental", "scores.entry", "foreign_flow"}
+	if bundle.Crowding.Availability != AvailabilityAvailable {
+		missing = append(missing, "crowding")
+	}
 	if bundle.PriceStructure.Availability != AvailabilityAvailable {
 		missing = append(missing, "price_structure")
 	}
@@ -99,7 +111,7 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 		"scores": map[string]any{
 			"fundamental": unavailableScore(fundamentalShadowComponents()),
 			"trend":       map[string]any{"value": trendValue, "direction": reportDirection(bundle.Trend.Direction), "coverage_pct": bundle.Trend.CoveragePct, "confidence": bundle.Trend.ConfidenceMax, "components": trendComponents},
-			"entry":       unavailableScore(entryShadowComponents()),
+			"entry":       shadowEntryScore(bundle.Crowding, crowdingRefs),
 		},
 		"indicators": indicators,
 		"cross_market": map[string]any{
@@ -115,7 +127,10 @@ func BuildDegradedShadowReport(bundle AnalysisBundle) ([]byte, error) {
 			"evidence_refs": catalystRefs,
 		},
 		"foreign_flow": map[string]any{"quality_status": "UNAVAILABLE", "direction": nil, "net_buy_value_krw": nil, "traded_value_krw": nil, "flow_ratio_pct": nil, "observed_at": nil, "source": nil, "evidence_refs": []string{}},
-		"crowding":     map[string]any{"availability": "UNAVAILABLE", "state": nil, "direction": nil, "available_inputs": 0, "trigger_count": 0, "evidence_refs": []string{}},
+		"crowding": map[string]any{
+			"availability": bundle.Crowding.Availability, "state": nullableString(string(bundle.Crowding.State)), "direction": nullableString(string(bundle.Crowding.Direction)),
+			"available_inputs": bundle.Crowding.AvailableInputs, "trigger_count": bundle.Crowding.TriggerCount, "evidence_refs": crowdingRefs,
+		},
 		"memory_trend": map[string]any{
 			"previous_state": bundle.Memory.PreviousState, "state": bundle.Memory.State, "day_classification": bundle.Memory.Day,
 			"transitioned": bundle.Memory.Transitioned, "supportive_streak": bundle.Memory.SupportiveStreak, "adverse_streak": bundle.Memory.AdverseStreak,
@@ -159,6 +174,17 @@ func entryShadowComponents() []any {
 		name   string
 		weight int
 	}{{"extension_pullback", 3}, {"reward_risk", 2}, {"catalyst_acceptance", 2}, {"liquidity_volatility", 1}, {"crowding", 2}})
+}
+
+func shadowEntryScore(crowding Crowding, refs []string) map[string]any {
+	components := entryShadowComponents()
+	coverage := 0
+	if crowding.Availability == AvailabilityAvailable {
+		value := map[CrowdingState]float64{CrowdingLow: 2, CrowdingNormal: 1.5, CrowdingHigh: 0.5, CrowdingExtreme: 0}[crowding.State]
+		components[len(components)-1] = map[string]any{"name": "crowding", "weight": 2, "value": value, "evidence_refs": refs}
+		coverage = 20
+	}
+	return map[string]any{"value": nil, "direction": "UNAVAILABLE", "coverage_pct": coverage, "confidence": "LOW", "components": components}
 }
 
 func unavailableComponents(specs []struct {
