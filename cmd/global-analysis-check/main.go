@@ -13,6 +13,7 @@ import (
 	"github.com/shaojie-li/stocks-marketing/internal/domain"
 	"github.com/shaojie-li/stocks-marketing/internal/market/hyperliquid"
 	"github.com/shaojie-li/stocks-marketing/internal/source/company/dart"
+	"github.com/shaojie-li/stocks-marketing/internal/source/company/opendart"
 	"github.com/shaojie-li/stocks-marketing/internal/storage/postgres/db"
 )
 
@@ -57,6 +58,12 @@ func run() error {
 	if err != nil {
 		return errors.New("parse analysis as_of")
 	}
+	fundamental := domain.UnavailableFundamental("xyz:SKHY", domain.FundamentalReasonSourceError)
+	if fundamentalConfig, configErr := opendart.LoadConfig(ctx, settings); configErr == nil {
+		if fetched, fetchErr := opendart.NewClient(nil, fundamentalConfig).LatestFundamental(ctx, asOf); fetchErr == nil {
+			fundamental = fetched
+		}
+	}
 	priceStructure, err := marketClient.SKHYPriceStructure(ctx, "xyz:SKHY", asOf)
 	if err != nil {
 		priceStructure = domain.UnavailablePriceStructure("xyz:SKHY", domain.PriceStructureReasonSourceError, 0, nil)
@@ -88,7 +95,7 @@ func run() error {
 	bundle, err := domain.BuildAnalysisBundle(domain.AnalysisBundleInput{
 		Phase: "GLOBAL", PrimaryAsset: "xyz:SKHY", AsOf: asOf.Format(time.RFC3339Nano),
 		AsOfBucket: asOf.Truncate(time.Minute).Format(time.RFC3339Nano), Observations: observations,
-		PriceStructure: priceStructure, Catalyst: catalyst, Crowding: crowding,
+		PriceStructure: priceStructure, Catalyst: catalyst, Crowding: crowding, Fundamental: fundamental,
 	})
 	if err != nil {
 		return err

@@ -151,7 +151,15 @@ Hyperliquid 官方当前支持 `1d` interval 且最多返回最近 5000 根 cand
 
 `metaAndAssetCtxs` 没有给出外部 oracle 源自身的采样时间。因此系统只能验证盘口/消息的服务端时间和本地接收年龄，不能把“刚收到 oraclePx”描述成“底层 oracle 已确认新鲜”。外部 oracle freshness 为 `UNAVAILABLE` 时，报告置信度不能高于底层证据；出现消息停更或无效字段时直接关闭 Gate。
 
-## 10. 持久化与再分发边界
+## 10. OpenDART Fundamental
+
+2026-08-16 使用加密认证键完成 SK hynix `00164779` 真实只读验证。最新最终定期报告为接收号 `20260814003509`、`반기보고서 (2026.06)`、CFS、报告期末 `2026-06-30`；列表、当期 247 个财务科目、上年同期 238 个科目及同接收号单文件报告 ZIP 均取得独立 SHA-256。脱敏证据见 [`t013-skhy-fundamental-live-check.json`](../testdata/data-sources/opendart/t013-skhy-fundamental-live-check.json)。
+
+结构化科目覆盖 revenue、operating profit、inventory、cash、短长借款、operating cash flow 和 PPE purchases；原始正式报告的窄章节覆盖 HBM/AI server DRAM 实际销售与出货以及 DRAM/NAND ASP 方向。因此五个 Fundamental 组件可确定性计算，覆盖 90%；监管、客户集中与事件风险没有可证明的“无风险”输入，继续不可用。
+
+OpenDART 当前 TLS 端点协商 TLS 1.2 `TLS_RSA_WITH_AES_128_GCM_SHA256`。Go 客户端显式启用该旧套件并限制为官方 host；不调用 curl 子进程、不引入第二语言。无效键、官方状态非正常、HTTP/载荷错误、响应超限、账户重复/缺失、接收号冲突、ZIP 成员冲突或窄章节缺失均显式失败。SK hynix Newsroom 现行条款禁止机器人自动化访问，不作为回退。
+
+## 11. 持久化与再分发边界
 
 项目政策冻结为：
 
@@ -160,7 +168,7 @@ Hyperliquid 官方当前支持 `1d` interval 且最多返回最近 5000 根 cand
 - trade.xyz Terms 会将 Interface 与第三方服务区分开，但未提供明确的原始市场数据再分发授权。因此 raw redistribution 标记为 `UNCONFIRMED`，在取得书面授权或法律复核前禁止。
 - 地域、受限主体及第三方服务条款仍由实际运营者负责核验；本结论是项目风险边界，不是法律意见。
 
-### 10.1 KRX Foreign Flow 可行性结论
+### 11.1 KRX Foreign Flow 可行性结论
 
 2026-08-15 按 T-009 的 `GO` / `NO-GO` 门复核 KRX 官方资料。结论为 `NO-GO`：KRX 网页和付费数据商品证明投资者分类数据客观存在，但当前公开 OPEN API 不覆盖所需投资者净买卖字段；免费 API 条款也不允许本项目默认进行 Discord 第三方输出。项目没有覆盖该用途的 KRX/Koscom 数据合同，因此不申请认证密钥、不调用未文档化网页接口，也不实施 Foreign Flow。
 

@@ -48,7 +48,7 @@ func TestBuildAnalysisBundleIsDeterministicAndKeepsUnavailableSignalsExplicit(t 
 	if third.Memory.SessionDate != "2026-08-15" {
 		t.Fatalf("civil session date shifted across timezone: %s", third.Memory.SessionDate)
 	}
-	if first.Identity.RuleVersion != "global-analysis/1.5.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
+	if first.Identity.RuleVersion != "global-analysis/1.6.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
 		t.Fatalf("stable identity is incomplete: %#v", first.Identity)
 	}
 	if first.Trend.Value != "9.4" || first.Trend.CoveragePct != 80 || first.Trend.ConfidenceMax != ConfidenceMedium || first.Trend.Direction != "" {
@@ -113,7 +113,7 @@ func TestBuildAnalysisBundleUsesComparableScoreAndPreviousMemory(t *testing.T) {
 	}
 	previousTrend.Value = "8.9"
 	previousMemory := &MemoryTrendTransition{
-		RuleVersion: "global-analysis/1.5.0", State: MemoryTrendImproving,
+		RuleVersion: "global-analysis/1.6.0", State: MemoryTrendImproving,
 		SupportiveStreak: 1, AdverseStreak: 1, SessionDate: "2026-08-14",
 	}
 	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
@@ -339,5 +339,38 @@ func TestBuildDegradedShadowReportKeepsSafetyGateWithAvailableCrowding(t *testin
 	}
 	if decoded.Scores.Entry.Value != nil || decoded.Scores.Entry.CoveragePct != 20 || decoded.Strategy.BestStructure != "NO_TRADE" || slices.Contains(decoded.DataAudit.MissingFields, "crowding") {
 		t.Fatalf("available Crowding changed safety gate: %#v", decoded)
+	}
+}
+
+func TestBuildDegradedShadowReportKeepsSafetyGateWithAvailableFundamental(t *testing.T) {
+	asOf := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
+	fundamental := CalculateFundamental(validFundamentalInput())
+	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{Phase: "GLOBAL", PrimaryAsset: "xyz:SKHY", AsOf: asOf.Format(time.RFC3339Nano), AsOfBucket: asOf.Format(time.RFC3339Nano), Observations: coreObservations(), Fundamental: fundamental})
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := BuildDegradedShadowReport(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded struct {
+		Scores struct {
+			Fundamental struct {
+				Value       any     `json:"value"`
+				CoveragePct float64 `json:"coverage_pct"`
+			} `json:"fundamental"`
+			Entry struct {
+				Value any `json:"value"`
+			} `json:"entry"`
+		} `json:"scores"`
+		Strategy struct {
+			BestStructure string `json:"best_structure"`
+		} `json:"strategy"`
+		DataAudit struct {
+			MissingFields []string `json:"missing_fields"`
+		} `json:"data_audit"`
+	}
+	if json.Unmarshal(report, &decoded) != nil || decoded.Scores.Fundamental.Value == nil || decoded.Scores.Fundamental.CoveragePct != 90 || decoded.Scores.Entry.Value != nil || decoded.Strategy.BestStructure != "NO_TRADE" || slices.Contains(decoded.DataAudit.MissingFields, "scores.fundamental") {
+		t.Fatalf("available Fundamental changed safety gate: %#v", decoded)
 	}
 }

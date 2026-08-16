@@ -231,3 +231,27 @@ Hyperliquid 公共 API 能提供 `xyz:SKHY` 当前 funding、premium、OI、日�
 - 当前真实 funding、premium 和 20 日成交量可审计，但日线历史未达到 50 根且 OI 历史不可回补，所以现场结果仍应为 `UNAVAILABLE`，不是 `LOW`。
 - 日线自然累计到 50 根后，四项真实输入可使 Crowding 自动变为可用，无需第二价格源或规则变更。
 - 若未来需要 OI 输入，必须用独立任务建立连续 60 日采集、持久化、补洞和运行可靠性边界；不能在本切片预建未验证基础设施。
+
+## D-010 Fundamental 只使用 OpenDART 最终定期报告
+
+- 状态：Accepted
+- 日期：2026-08-16
+- 关联：[T-013](https://github.com/shaojie-li/stocks-marketing/issues/26)
+
+### 背景
+
+SK hynix Newsroom 虽提供 RSS，但现行条款禁止 robot/spider 自动监控或复制，不能作为后台来源。OpenDART 官方 API 需要认证键，但允许取得最终定期报告列表、CFS XBRL 财务科目和同接收号原始报告。真实检查证明这些数据足以覆盖五个 Fundamental 组件；没有可靠输入证明监管、客户集中或事件风险不存在。
+
+### 决策
+
+- 唯一来源为 OpenDART SK hynix `00164779` 的最新最终定期报告；认证键作为加密 `app_settings`，不进入日志、fixture 或 Git。
+- 定量规则只接受同接收号 CFS 标准账户 ID、KRW 和同报告期比较；定性规则只读取正式报告“主要产品价格变动”窄章节中的已实现销售、出货和 ASP 方向。
+- AI/HBM 需求、价格周期、供给纪律、盈利和资产负债/CapEx 共覆盖 9/10；监管/客户风险保持不可用。缺失、重复、修订冲突、非正分母或段落变化不补零。
+- 模型不解析报告、不选择档位或改分。Newsroom、媒体、搜索、截图和第二语言爬虫不作为回退。
+- Fundamental 进入 Bundle、输入哈希和报告证据。完整 Entry 仍不足，`OBSERVE/WAIT + NO_TRADE + SHADOW_ONLY` 不变。规则版本提升为 `global-analysis/1.6.0`。
+
+### 影响
+
+- 系统首次能输出真实可审计的 Fundamental Score，同时明确保留未覆盖风险。
+- OpenDART 当前要求显式启用 TLS 1.2 RSA-GCM 兼容套件；若官方升级协议可删除该兼容配置。
+- 后续仍需完整 Entry/确认链和真实 Bundle→AI→Discord 闭环；Fundamental 可用不授权正式交易建议。
