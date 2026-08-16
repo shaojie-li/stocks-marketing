@@ -131,7 +131,7 @@ func TestAdvanceMemoryTrendReplaysFrozenTransitions(t *testing.T) {
 			if test.Expected.ConfidenceMax != "" && got.ConfidenceMax != test.Expected.ConfidenceMax {
 				t.Fatalf("confidence max = %s, want %s", got.ConfidenceMax, test.Expected.ConfidenceMax)
 			}
-			if got.RuleVersion != "global-analysis/1.3.0" || got.Reason == "" {
+			if got.RuleVersion != "global-analysis/1.4.0" || got.Reason == "" {
 				t.Fatalf("transition audit is incomplete: %#v", got)
 			}
 		})

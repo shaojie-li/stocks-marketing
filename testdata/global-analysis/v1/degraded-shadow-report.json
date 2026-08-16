@@ -1,0 +1,615 @@
+{
+  "analysis_id": "shadow:3f63c8c106ba5c58394895aa9cd781c22f5025262d4b1560a16c1a82458e5c82",
+  "as_of": "2026-08-15T15:33:33.827179Z",
+  "catalyst": {
+    "availability": "AVAILABLE",
+    "directional_alpha_pp": "-2.51705094",
+    "directional_return_pct": "-1.45183920",
+    "evidence_refs": [
+      "ev-catalyst"
+    ],
+    "expected_direction": "BEARISH",
+    "preliminary": false,
+    "state": "REJECTED"
+  },
+  "confirmation_chain": {
+    "first_break": 4,
+    "status": "INCOMPLETE",
+    "steps": [
+      {
+        "evidence_refs": [
+          "ev-memory-rs"
+        ],
+        "name": "xyz:MU 跑赢 xyz:SMH",
+        "position": 1,
+        "status": "PASS"
+      },
+      {
+        "evidence_refs": [
+          "ev-skhy-sector-alpha"
+        ],
+        "name": "xyz:SKHY 跑赢 xyz:SMSN",
+        "position": 2,
+        "status": "PASS"
+      },
+      {
+        "evidence_refs": [
+          "ev-skhy-market-alpha"
+        ],
+        "name": "xyz:SKHY 跑赢 xyz:KR200",
+        "position": 3,
+        "status": "PASS"
+      },
+      {
+        "evidence_refs": [],
+        "name": "外资净买 SKHY",
+        "position": 4,
+        "status": "UNAVAILABLE"
+      },
+      {
+        "evidence_refs": [
+          "ev-catalyst"
+        ],
+        "name": "价格接受 Catalyst",
+        "position": 5,
+        "status": "FAIL"
+      },
+      {
+        "evidence_refs": [
+          "ev-trend"
+        ],
+        "name": "Trend Score 提高",
+        "position": 6,
+        "status": "UNAVAILABLE"
+      }
+    ]
+  },
+  "cross_market": {
+    "availability": "AVAILABLE",
+    "direction": "BULLISH",
+    "evidence_refs": [
+      "ev-memory-rs",
+      "ev-skhy-sector-alpha"
+    ],
+    "kr_session_date": "2026-08-15",
+    "lag_hours": 0,
+    "state": "CONFIRMED",
+    "us_session_date": "2026-08-15"
+  },
+  "crowding": {
+    "availability": "UNAVAILABLE",
+    "available_inputs": 0,
+    "direction": null,
+    "evidence_refs": [],
+    "state": null,
+    "trigger_count": 0
+  },
+  "data_audit": {
+    "completeness": "LOW",
+    "completeness_pct": 26.666666666666668,
+    "confidence": "LOW",
+    "conflicts": [],
+    "freshness": "REALTIME",
+    "missing_fields": [
+      "scores.fundamental",
+      "scores.entry",
+      "foreign_flow",
+      "crowding",
+      "price_structure"
+    ]
+  },
+  "evidence": [
+    {
+      "affected_assets": [
+        "xyz:MU",
+        "xyz:SMH"
+      ],
+      "category": "RELATIVE_STRENGTH",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-memory-rs",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "memory_relative_strength 由同窗口 Observation 确定性计算。"
+    },
+    {
+      "affected_assets": [
+        "xyz:SMH",
+        "xyz:XYZ100"
+      ],
+      "category": "RELATIVE_STRENGTH",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-semiconductor-rs",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "semiconductor_relative_strength 由同窗口 Observation 确定性计算。"
+    },
+    {
+      "affected_assets": [
+        "xyz:AMD",
+        "xyz:NVDA"
+      ],
+      "category": "RELATIVE_STRENGTH",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-ai-compute-rotation",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "ai_compute_rotation 由同窗口 Observation 确定性计算。"
+    },
+    {
+      "affected_assets": [
+        "xyz:SKHY",
+        "xyz:SMSN"
+      ],
+      "category": "RELATIVE_STRENGTH",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-skhy-sector-alpha",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "skhy_sector_alpha 由同窗口 Observation 确定性计算。"
+    },
+    {
+      "affected_assets": [
+        "xyz:SKHY",
+        "xyz:KR200"
+      ],
+      "category": "RELATIVE_STRENGTH",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-skhy-market-alpha",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "skhy_market_alpha 由同窗口 Observation 确定性计算。"
+    },
+    {
+      "affected_assets": [
+        "xyz:MU",
+        "xyz:SMH",
+        "xyz:SKHY",
+        "xyz:SMSN"
+      ],
+      "category": "CROSS_MARKET",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-cross-market",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "Cross-Market 由 Memory RS 与 SKHY Sector Alpha 确定性计算。"
+    },
+    {
+      "affected_assets": [
+        "xyz:SKHY"
+      ],
+      "category": "TREND_SCORE",
+      "event_at": "2026-08-15T15:33:33.827179Z",
+      "evidence_id": "ev-trend",
+      "fact_status": "CONFIRMED",
+      "importance": "MEDIUM",
+      "numeric_context": null,
+      "original_source": "hyperliquid",
+      "published_at": "2026-08-15T15:33:33.827179Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "Trend Score 由可用组件按冻结权重归一化。"
+    },
+    {
+      "affected_assets": [
+        "xyz:SKHY"
+      ],
+      "category": "CATALYST_ACCEPTANCE",
+      "event_at": "2026-08-14T07:44:00Z",
+      "evidence_id": "ev-catalyst",
+      "fact_status": "CONFIRMED",
+      "importance": "HIGH",
+      "numeric_context": null,
+      "original_source": "https://dart.fss.or.kr/api/link.jsp?rcpNo=20260814802986",
+      "published_at": "2026-08-14T07:44:00Z",
+      "source": "domain-engine",
+      "source_tier": "DERIVED",
+      "summary": "DART 官方事件及其 24 小时价格接受由确定性规则评估。"
+    }
+  ],
+  "foreign_flow": {
+    "direction": null,
+    "evidence_refs": [],
+    "flow_ratio_pct": null,
+    "net_buy_value_krw": null,
+    "observed_at": null,
+    "quality_status": "UNAVAILABLE",
+    "source": null,
+    "traded_value_krw": null
+  },
+  "idempotency_key": "shadow:3f63c8c106ba5c58394895aa9cd781c22f5025262d4b1560a16c1a82458e5c82",
+  "indicators": {
+    "ai_compute_rotation": {
+      "availability": "AVAILABLE",
+      "input_observation_refs": [
+        "obs:xyz:AMD:1786721579999:1786808013827",
+        "obs:xyz:NVDA:1786721579999:1786808013827"
+      ],
+      "left_symbol": "xyz:AMD",
+      "right_symbol": "xyz:NVDA",
+      "session_date": "2026-08-15",
+      "state": "STRONG",
+      "value_pp": "3.19395430",
+      "window_type": "CONTRACT_24H"
+    },
+    "memory_relative_strength": {
+      "availability": "AVAILABLE",
+      "input_observation_refs": [
+        "obs:xyz:MU:1786721579999:1786808013827",
+        "obs:xyz:SMH:1786721579999:1786808013827"
+      ],
+      "left_symbol": "xyz:MU",
+      "right_symbol": "xyz:SMH",
+      "session_date": "2026-08-15",
+      "state": "STRONG",
+      "value_pp": "1.00698903",
+      "window_type": "CONTRACT_24H"
+    },
+    "semiconductor_relative_strength": {
+      "availability": "AVAILABLE",
+      "input_observation_refs": [
+        "obs:xyz:SMH:1786721579999:1786808013827",
+        "obs:xyz:XYZ100:1786721579999:1786808013827"
+      ],
+      "left_symbol": "xyz:SMH",
+      "right_symbol": "xyz:XYZ100",
+      "session_date": "2026-08-15",
+      "state": "NEUTRAL",
+      "value_pp": "-0.07720888",
+      "window_type": "CONTRACT_24H"
+    },
+    "skhy_market_alpha": {
+      "availability": "AVAILABLE",
+      "input_observation_refs": [
+        "obs:xyz:SKHY:1786721579999:1786808013827",
+        "obs:xyz:KR200:1786721579999:1786808013827"
+      ],
+      "left_symbol": "xyz:SKHY",
+      "right_symbol": "xyz:KR200",
+      "session_date": "2026-08-15",
+      "state": "POSITIVE",
+      "value_pp": "0.63937367",
+      "window_type": "CONTRACT_24H"
+    },
+    "skhy_sector_alpha": {
+      "availability": "AVAILABLE",
+      "input_observation_refs": [
+        "obs:xyz:SKHY:1786721579999:1786808013827",
+        "obs:xyz:SMSN:1786721579999:1786808013827"
+      ],
+      "left_symbol": "xyz:SKHY",
+      "right_symbol": "xyz:SMSN",
+      "session_date": "2026-08-15",
+      "state": "POSITIVE",
+      "value_pp": "0.43959357",
+      "window_type": "CONTRACT_24H"
+    }
+  },
+  "memory_trend": {
+    "adverse_streak": 0,
+    "day_classification": "DATA_UNAVAILABLE",
+    "evidence_refs": [],
+    "previous_state": "WEAK",
+    "reason": "DATA_UNAVAILABLE 保持状态并清零 streak",
+    "session_date": "2026-08-15",
+    "state": "WEAK",
+    "supportive_streak": 0,
+    "transitioned": false
+  },
+  "model": "NOT_INVOKED",
+  "observations": [
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "3.08742021",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:AMD:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "515.2",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:AMD",
+      "window_type": "CONTRACT_24H"
+    },
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "0.14669478",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:KR200:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "1092.3",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:KR200",
+      "window_type": "CONTRACT_24H"
+    },
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "1.18674661",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:MU:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "975.42",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:MU",
+      "window_type": "CONTRACT_24H"
+    },
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "-0.10653409",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:NVDA:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "225.04",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:NVDA",
+      "window_type": "CONTRACT_24H"
+    },
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "0.78606845",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:SKHY:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "166.68",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:SKHY",
+      "window_type": "CONTRACT_24H"
+    },
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "0.17975758",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:SMH:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "585.17",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:SMH",
+      "window_type": "CONTRACT_24H"
+    },
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "0.34647488",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:SMSN:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "191.15",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:SMSN",
+      "window_type": "CONTRACT_24H"
+    },
+    {
+      "adjustment": "NOT_APPLICABLE",
+      "change_pct": "0.25696646",
+      "freshness": "REALTIME",
+      "market_status": "CONTINUOUS",
+      "observation_id": "obs:xyz:XYZ100:1786721579999:1786808013827",
+      "observed_at": "2026-08-15T15:33:33.827179Z",
+      "price": "30042.0",
+      "session_date": "2026-08-15",
+      "source": "hyperliquid",
+      "source_tier": "MARKET_API",
+      "symbol": "xyz:XYZ100",
+      "window_type": "CONTRACT_24H"
+    }
+  ],
+  "phase": "GLOBAL",
+  "primary_asset": "xyz:SKHY",
+  "prompt_version": "shadow-deterministic/1.0.0",
+  "rule_version": "global-analysis/1.4.0",
+  "schema_version": "1.0.0",
+  "scores": {
+    "entry": {
+      "components": [
+        {
+          "evidence_refs": [],
+          "name": "extension_pullback",
+          "value": null,
+          "weight": 3
+        },
+        {
+          "evidence_refs": [],
+          "name": "reward_risk",
+          "value": null,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [],
+          "name": "catalyst_acceptance",
+          "value": null,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [],
+          "name": "liquidity_volatility",
+          "value": null,
+          "weight": 1
+        },
+        {
+          "evidence_refs": [],
+          "name": "crowding",
+          "value": null,
+          "weight": 2
+        }
+      ],
+      "confidence": "LOW",
+      "coverage_pct": 0,
+      "direction": "UNAVAILABLE",
+      "value": null
+    },
+    "fundamental": {
+      "components": [
+        {
+          "evidence_refs": [],
+          "name": "ai_hbm_server_demand",
+          "value": null,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [],
+          "name": "memory_pricing_cycle",
+          "value": null,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [],
+          "name": "supply_discipline",
+          "value": null,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [],
+          "name": "earnings_guidance_revisions",
+          "value": null,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [],
+          "name": "balance_sheet_capex_execution",
+          "value": null,
+          "weight": 1
+        },
+        {
+          "evidence_refs": [],
+          "name": "regulatory_customer_event_risk",
+          "value": null,
+          "weight": 1
+        }
+      ],
+      "confidence": "LOW",
+      "coverage_pct": 0,
+      "direction": "UNAVAILABLE",
+      "value": null
+    },
+    "trend": {
+      "components": [
+        {
+          "evidence_refs": [
+            "ev-memory-rs"
+          ],
+          "name": "memory_relative_strength",
+          "value": 2.5,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [
+            "ev-semiconductor-rs"
+          ],
+          "name": "semiconductor_relative_strength",
+          "value": 0.6,
+          "weight": 1
+        },
+        {
+          "evidence_refs": [
+            "ev-ai-compute-rotation"
+          ],
+          "name": "ai_compute_rotation",
+          "value": 1.3,
+          "weight": 1
+        },
+        {
+          "evidence_refs": [
+            "ev-skhy-sector-alpha"
+          ],
+          "name": "skhy_sector_alpha",
+          "value": 1.9,
+          "weight": 2
+        },
+        {
+          "evidence_refs": [
+            "ev-skhy-market-alpha"
+          ],
+          "name": "skhy_market_alpha",
+          "value": 0.9,
+          "weight": 1
+        },
+        {
+          "evidence_refs": [
+            "ev-cross-market"
+          ],
+          "name": "cross_market",
+          "value": 1.2,
+          "weight": 1
+        },
+        {
+          "evidence_refs": [],
+          "name": "skhy_price_structure",
+          "value": null,
+          "weight": 1
+        },
+        {
+          "evidence_refs": [],
+          "name": "skhy_foreign_flow",
+          "value": null,
+          "weight": 1
+        }
+      ],
+      "confidence": "MEDIUM",
+      "coverage_pct": 80,
+      "direction": "UNAVAILABLE",
+      "value": 8.4
+    }
+  },
+  "strategy": {
+    "best_structure": "NO_TRADE",
+    "current": "OBSERVE",
+    "evidence_refs": [
+      "ev-trend"
+    ],
+    "invalidation_conditions": [],
+    "rationale": "Entry 数据覆盖不足，仅提供观察结论。"
+  },
+  "window": {
+    "baseline": "CONTINUOUS_24H_PRICE",
+    "end": "2026-08-15T15:33:33.827179Z",
+    "start": "2026-08-14T15:32:59.999Z",
+    "type": "CONTRACT_24H"
+  }
+}

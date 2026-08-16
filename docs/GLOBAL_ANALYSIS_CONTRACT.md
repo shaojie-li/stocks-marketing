@@ -1,7 +1,7 @@
 # 全局交易分析契约
 
-状态：Frozen v1.3.0
-规则版本：`global-analysis/1.3.0`
+状态：Frozen v1.4.0
+规则版本：`global-analysis/1.4.0`
 更新日期：2026-08-15
 
 ## 1. 目标与边界
@@ -10,7 +10,7 @@
 
 当前系统提供可追溯的 Discord 决策辅助，不连接钱包、券商私有交易接口或自动下单。模型只解释已经计算的事实、证据和状态，不负责计算权威数值、补齐缺失数据或改变确定性结论。
 
-为消除原始规则中的歧义，v1.3 做出以下决定：
+为消除原始规则中的歧义，v1.4 做出以下决定：
 
 - 最终报告必须同时输出 Fundamental、Trend、Entry 三个 Score。
 - `SKHY Alpha` 拆为 `SKHY Sector Alpha` 和 `SKHY Market Alpha`，不再使用含义不明的合成字段。
@@ -298,11 +298,19 @@ Entry 衡量当前交易位置，允许出现 `Trend UP + Entry DOWN`：
 |---|---:|---|
 | 延伸/回踩结构 | 3 | 健康回踩并承接 3；普通区间 2；明显延伸 0.5；结构跌破 0 |
 | 失效位对应的盈亏比 | 2 | `>=3` 为 2；`>=2` 为 1.5；`>=1.5` 为 1；更低为 0 |
-| Catalyst 价格接受 | 2 | `ACCEPTED=2`、`NEUTRAL=1`、`REJECTED=0` |
+| Catalyst 价格接受 | 2 | 相对拟评估交易方向：支持为 2、中性为 1、反对为 0；没有有效交易方向时不可用 |
 | 流动性与波动可执行性 | 1 | 正常 1；受限/异常 0 |
 | Crowding | 2 | `LOW=2`、`NORMAL=1.5`、`HIGH=0.5`、`EXTREME=0` |
 
 用户持仓方向不是任何 Score 的输入。
+
+Catalyst Entry 组件使用拟评估交易方向，而不是用户现有持仓方向。事件方向被价格 `ACCEPTED` 时只支持同方向交易，被价格 `REJECTED` 时只支持反方向交易，`NEUTRAL` 得 1 分。例如看空事件被价格拒绝时，LONG 得 2、SHORT 得 0。没有由其他 Entry 组件确定的有效交易方向时，本组件保持 `null`，不能仅按 `ACCEPTED/REJECTED` 字面计分。
+
+### 8.5 降级分析安全门
+
+价格 Eligibility Gate 通过但 Fundamental、Crowding、Foreign Flow 或 Entry 输入不足时，可以生成只读 shadow 分析。Entry 覆盖率低于 70% 或 `value = null` 时，策略只能是 `OBSERVE/WAIT + NO_TRADE`，不得输出目标价、止损价、仓位或盈亏比，也不得进入正式业务投递。`NO_TRADE` 不要求伪造交易失效位；任何实际交易结构仍必须至少包含一个带证据引用的客观失效条件。
+
+该判断由确定性质量门执行。模型只能解释缺失原因和已有证据，不能把高 Trend、利空韧性或其他局部强势改写成 Entry。降级报告只允许输出到 stdout、shadow 频道或审计存储；正式 `App.Submit` 必须在创建 Analysis Run、delivery、River job 或 Discord 请求前拒绝。
 
 以下 Entry 规则仍要求正式交易时段数据，T-008 不实现：
 
@@ -410,6 +418,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 - `global-analysis/1.1.0`：在 Hyperliquid 单一市场数据源约束下，引入版本化 trade.xyz 映射；核心指标基准改为 `SMH`、`XYZ100`、`SMSN` 和 `KR200`，并明确拒绝无变换的 `SOXL` 替代。
 - `global-analysis/1.2.0`：冻结 `xyz:SKHY` UTC 连续合约日线的 EMA20、EMA50、Wilder ATR14、先前 20 日支撑与历史充足性门，并把可用 Price Structure 接入 Analysis Bundle 和 Trend Score。
 - `global-analysis/1.3.0`：冻结 DART SK hynix 衍生品交易损失 Catalyst、`xyz:SKHY`/`xyz:SMSN` 的 `CATALYST_24H` 同锚点窗口及价格接受状态，并把完整 Catalyst Evaluation 接入 Analysis Bundle 输入哈希。
+- `global-analysis/1.4.0`：冻结降级分析的 `OBSERVE/WAIT + NO_TRADE + SHADOW_ONLY` 安全门、方向感知的 Catalyst Entry 语义，以及正式投递前的 fail-closed 校验。
 
 ## 14. 验证资产
 
@@ -427,7 +436,7 @@ python3 scripts/validate-analysis-contract.py
 npx --yes --package ajv-cli@5.0.0 --package ajv-formats@2.1.1 \
   ajv validate --strict=true --multiple-of-precision=2 -c ajv-formats \
   -s schemas/global-analysis-report.schema.json \
-  -d testdata/global-analysis/v1/example-report.json
+  -d 'testdata/global-analysis/v1/*report.json'
 ```
 
 `--multiple-of-precision=2` 只处理 JSON number 的二进制浮点校验误差，不改变一位小数的业务约束。GitHub Actions 对每个 PR 和 `main` 推送执行相同检查；T-003 在建立 Go 工具链后继续复用这些测试向量。

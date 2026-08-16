@@ -38,4 +38,4 @@ jobs:
           --multiple-of-precision=2
           -c ajv-formats
           -s schemas/global-analysis-report.schema.json
-          -d testdata/global-analysis/v1/example-report.json
+          -d 'testdata/global-analysis/v1/*report.json'

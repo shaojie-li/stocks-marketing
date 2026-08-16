@@ -182,3 +182,28 @@ KRX Data Marketplace 网页展示股票和衍生品投资者交易实绩，KRX �
 - 系统能够审计一个真实官方损失披露的市场接受，但不声称覆盖全部公司 Catalyst；事件离开 DART 最近 5 个营业日窗口后，只读检查会返回没有最近事件。
 - Catalyst 可用不会改变 Trend Score。Foreign Flow 仍不可用，因此 Memory 保持 `DATA_UNAVAILABLE`、前态不变、streak 清零且 Confidence 上限为 `LOW`。
 - 新增下一种事件前，必须单独证明官方来源、自动化用途边界、精确方向语义、修订行为和可测试价格窗口，不能把任意新闻分类扩展进来。
+
+## D-008 降级全局分析使用非入场安全门
+
+- 状态：Accepted
+- 日期：2026-08-15
+- 关联：[T-011](https://github.com/shaojie-li/stocks-marketing/issues/22)
+
+### 背景
+
+真实 live check 已能计算同窗口核心指标、Trend Score 和 DART Catalyst，但 Fundamental、Crowding、Foreign Flow、完整 Entry、正式交易时段结构和客观盈亏比仍不可用。若等待所有组件完成后才生成报告，无法提前验证分析价值；若直接把缺失组件交给模型补齐，又会把局部趋势强势包装成不可审计的交易建议。现有 Discord 摘要还会把 JSON `null` Entry 解码为 Go `float64` 零值，存在降级报告被错误当作正式结果发送的风险。
+
+### 决策
+
+- 价格 Gate 通过时允许生成真实只读 shadow 分析，缺失的非价格组件保持 `null/UNAVAILABLE`，不补零、不推断方向。
+- Entry 覆盖率低于 70% 或分值为 `null` 时，策略固定为 `OBSERVE/WAIT + NO_TRADE`，路由固定为 `SHADOW_ONLY`。不输出目标价、止损价、仓位或盈亏比，不进入正式 Discord 业务投递。
+- `NO_TRADE` 不伪造交易失效位；任何非 `NO_TRADE` 结构必须提供至少一个带证据引用的客观失效条件。
+- Catalyst Entry 贡献必须结合事件方向和拟评估交易方向：接受事件方向只支持同向，拒绝事件方向只支持反向，`NEUTRAL` 为中性；没有有效交易方向时该组件不可用。
+- 正式提交边界在数据库、River 和 Discord 副作用之前执行同一确定性安全校验。模型不能改变安全结果或路由。
+- 规则版本提升为 `global-analysis/1.4.0`。本切片不实现 Crowding、Fundamental、完整 Entry、模型调用、正式调度或生产部署。
+
+### 影响
+
+- 系统可以更早用真实数据验证报告价值，同时保证数据不足只产生观察结论。
+- 降级报告与正式报告共享 Schema 和领域事实，不建立第二套分析规则；`NO_ENTRY` 只作为内部安全决策，机器报告继续复用 `OBSERVE + NO_TRADE`。
+- 后续 T-012 可以独立补 Crowding，提高 Entry 覆盖率，但不能绕过客观失效条件和正式投递门。

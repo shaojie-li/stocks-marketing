@@ -16,7 +16,7 @@ FIXTURES = ROOT / "testdata" / "global-analysis" / "v1"
 DATA_SOURCE_FIXTURES = ROOT / "testdata" / "data-sources" / "hyperliquid"
 DART_FIXTURES = ROOT / "testdata" / "data-sources" / "dart"
 STATE_ORDER = ["WEAK", "IMPROVING", "CONFIRMED", "STRONG", "PERSISTENT_STRONG"]
-RULE_VERSION = "global-analysis/1.3.0"
+RULE_VERSION = "global-analysis/1.4.0"
 
 
 class ValidationError(Exception):
@@ -101,6 +101,27 @@ def validate_report() -> None:
         require(observation["source"] == "fixture-hyperliquid", f"核心行情不是 Hyperliquid：{observation['symbol']}")
         require(observation["window_type"] == "CONTRACT_24H", f"核心行情窗口错误：{observation['symbol']}")
         require(observation["market_status"] == "CONTINUOUS", f"核心合约市场状态错误：{observation['symbol']}")
+
+
+def validate_degraded_shadow_report() -> None:
+    report = load_json(FIXTURES / "degraded-shadow-report.json")
+    require(report["rule_version"] == RULE_VERSION, "降级 shadow 报告规则版本错误")
+    require(report["model"] == "NOT_INVOKED", "只读 shadow 报告不得伪造模型调用")
+    require(report["scores"]["fundamental"]["value"] is None, "降级 Fundamental 必须为 null")
+    require(report["scores"]["entry"]["value"] is None, "降级 Entry 必须为 null")
+    require(report["scores"]["entry"]["coverage_pct"] < 70, "降级 Entry 覆盖率必须低于门槛")
+    require(report["strategy"]["current"] in {"OBSERVE", "WAIT"}, "降级策略必须观察或等待")
+    require(report["strategy"]["best_structure"] == "NO_TRADE", "降级策略不得形成交易结构")
+    require(report["strategy"]["invalidation_conditions"] == [], "NO_TRADE 不得伪造交易失效位")
+    require(report["data_audit"]["confidence"] == "LOW", "降级报告 Confidence 必须为 LOW")
+    require(report["confirmation_chain"]["first_break"] == 4, "真实确认链首个断点必须是 Foreign Flow")
+    require(report["catalyst"]["expected_direction"] == "BEARISH", "真实 Catalyst 方向错误")
+    require(report["catalyst"]["state"] == "REJECTED", "真实 Catalyst 接受状态错误")
+    evidence_ids = {item["evidence_id"] for item in report["evidence"]}
+    for item in walk(report):
+        if isinstance(item, dict):
+            for evidence_id in item.get("evidence_refs", []):
+                require(evidence_id in evidence_ids, f"降级报告引用未知 Evidence：{evidence_id}")
 
 
 def validate_asset_map() -> None:
@@ -290,6 +311,7 @@ def validate_markdown_links() -> None:
 def main() -> int:
     try:
         validate_report()
+        validate_degraded_shadow_report()
         validate_asset_map()
         validate_hyperliquid_failure_policy()
         validate_hyperliquid_live_fixture()
