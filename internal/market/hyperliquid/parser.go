@@ -8,6 +8,9 @@ import (
 	"io"
 	"math/big"
 	"regexp"
+	"time"
+
+	"github.com/shaojie-li/stocks-marketing/internal/domain"
 )
 
 var decimalPattern = regexp.MustCompile(`^-?[0-9]+(?:\.[0-9]+)?$`)
@@ -50,6 +53,38 @@ type WebSocketMessage struct {
 	Subscription string
 	Book         *Book
 	Context      *AssetContext
+}
+
+func ParseFundingHistory(raw []byte, expectedSymbol string) ([]domain.CrowdingFundingSample, error) {
+	var payload []struct {
+		Coin        string  `json:"coin"`
+		FundingRate *string `json:"fundingRate"`
+		Premium     *string `json:"premium"`
+		Time        int64   `json:"time"`
+	}
+	if err := decodeOne(raw, &payload); err != nil {
+		return nil, fmt.Errorf("decode fundingHistory: %w", err)
+	}
+	if len(payload) == 0 {
+		return nil, errors.New("fundingHistory is empty")
+	}
+	result := make([]domain.CrowdingFundingSample, len(payload))
+	var previousHour time.Time
+	for index, item := range payload {
+		if item.Coin != expectedSymbol || item.FundingRate == nil || item.Premium == nil || item.Time <= 0 || !decimal(*item.FundingRate) || !decimal(*item.Premium) {
+			return nil, fmt.Errorf("fundingHistory item %d is invalid", index)
+		}
+		at := time.UnixMilli(item.Time).UTC()
+		hour := at.Truncate(time.Hour)
+		if index > 0 && !hour.Equal(previousHour.Add(time.Hour)) {
+			return nil, fmt.Errorf("fundingHistory item %d is duplicate, out of order or separated by a gap", index)
+		}
+		previousHour = hour
+		result[index] = domain.CrowdingFundingSample{
+			Symbol: item.Coin, Time: at.Format(time.RFC3339Nano), FundingRate: *item.FundingRate, Premium: *item.Premium,
+		}
+	}
+	return result, nil
 }
 
 func ParseMetaAndAssetContexts(raw []byte) ([]AssetContext, error) {

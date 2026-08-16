@@ -62,6 +62,33 @@ func TestParseBookRejectsWrongAssetAndOneSidedBook(t *testing.T) {
 	}
 }
 
+func TestParseFundingHistoryPreservesOfficialDecimalsAndHourlyTimes(t *testing.T) {
+	samples, err := ParseFundingHistory(readFixture(t, "t012-skhy-funding-history.json"), "xyz:SKHY")
+	if err != nil {
+		t.Fatalf("parse funding history: %v", err)
+	}
+	if len(samples) != 2 || samples[0].FundingRate != "-0.0000164624" || samples[0].Premium != "-0.0005633981" || samples[1].Time != "2026-07-16T01:00:00.134Z" {
+		t.Fatalf("funding history was changed: %#v", samples)
+	}
+}
+
+func TestParseFundingHistoryRejectsMissingWrongOrMalformedFields(t *testing.T) {
+	valid := string(readFixture(t, "t012-skhy-funding-history.json"))
+	tests := map[string]string{
+		"wrong symbol":    strings.Replace(valid, "xyz:SKHY", "xyz:OTHER", 1),
+		"missing premium": strings.Replace(valid, `"premium": "-0.0005633981",`, "", 1),
+		"invalid decimal": strings.Replace(valid, `"0.00000625"`, `"NaN"`, 1),
+		"duplicate hour":  strings.Replace(valid, "1784163600134", "1784160000134", 1),
+	}
+	for name, payload := range tests {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ParseFundingHistory([]byte(payload), "xyz:SKHY"); err == nil {
+				t.Fatal("unsafe funding history was accepted")
+			}
+		})
+	}
+}
+
 func TestParseWebSocketReplayRequiresKnownAssets(t *testing.T) {
 	scanner := bufio.NewScanner(bytes.NewReader(readFixture(t, "t004-websocket-replay.jsonl")))
 	known := map[string]struct{}{"xyz:SKHY": {}}

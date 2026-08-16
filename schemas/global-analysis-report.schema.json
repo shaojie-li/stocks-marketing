@@ -32,7 +32,7 @@
     "schema_version": { "const": "1.0.0" },
     "analysis_id": { "$ref": "#/definitions/nonEmptyString" },
     "idempotency_key": { "$ref": "#/definitions/nonEmptyString" },
-    "rule_version": { "const": "global-analysis/1.4.0" },
+    "rule_version": { "const": "global-analysis/1.5.0" },
     "prompt_version": { "$ref": "#/definitions/nonEmptyString" },
     "model": { "$ref": "#/definitions/nonEmptyString" },
     "phase": {
@@ -359,7 +359,28 @@
           "items": { "$ref": "#/definitions/nonEmptyString" },
           "uniqueItems": true
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "availability": { "const": "AVAILABLE" } },
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": {
+              "state": { "enum": ["LOW", "NORMAL", "HIGH", "EXTREME"] },
+              "direction": { "enum": ["LONG", "SHORT", "MIXED"] },
+              "available_inputs": { "type": "integer", "minimum": 4 }
+            }
+          },
+          "else": {
+            "properties": {
+              "state": { "type": "null" },
+              "direction": { "type": "null" }
+            }
+          }
+        }
+      ]
     },
     "memoryTrend": {
       "type": "object",

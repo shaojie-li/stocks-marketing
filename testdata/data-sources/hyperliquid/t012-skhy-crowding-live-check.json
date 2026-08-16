@@ -1,0 +1,33 @@
+{
+  "source": "hyperliquid",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "checked_at": "2026-08-16T12:01:27Z",
+  "symbol": "xyz:SKHY",
+  "public_read_only": true,
+  "contains_secrets": false,
+  "full_history_stored": false,
+  "raw_redistribution": "UNCONFIRMED",
+  "availability": "UNAVAILABLE",
+  "reason": "INSUFFICIENT_INPUTS",
+  "available_inputs": 3,
+  "trigger_count": 0,
+  "funding_history": {
+    "required_samples": 720,
+    "page_counts": [500, 220],
+    "window_start": "2026-07-17T13:00:00.06Z",
+    "window_end": "2026-08-16T12:00:00.014Z",
+    "response_sha256": [
+      "8ddda2f9b3d3211d36bf4c8dc5b5f969977c5ea4bb7fa73877fd7f0d44686b86",
+      "8494fe6c71ae6043954238d504a2735bbe5a1a2a00b239414c3678656d72a616"
+    ]
+  },
+  "components": {
+    "funding": { "availability": "AVAILABLE", "current_value": "-0.00002542", "percentile": "61.11111111", "triggered": false },
+    "open_interest": { "availability": "UNAVAILABLE", "reason": "HISTORICAL_OI_UNAVAILABLE", "current_value": "1396545.24000000" },
+    "premium": { "availability": "AVAILABLE", "current_value": "-0.00070667", "percentile": "61.11111111", "triggered": false },
+    "price_extension": { "availability": "UNAVAILABLE", "reason": "INSUFFICIENT_HISTORY", "completed_daily_bars": 38 },
+    "volume": { "availability": "AVAILABLE", "current_value": "34763.15000000", "percentile": "5.00000000", "triggered": false }
+  },
+  "daily_response_sha256": "6e86acaf0323bcdce9e2e223636aa6c661e7fecfbae21771cbc54940e41d6c20",
+  "context_response_sha256": "2fbbd7b2b96875afee9f24ef178ac4cc8e59d5e79e15df20bd50cef60429123e"
+}

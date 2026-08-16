@@ -22,7 +22,7 @@ DART SK hynix 公司 RSS 中的衍生品交易损失首次披露
 
 固定分析 fixture
 → 同窗口核心指标
-→ 符合 global-analysis/1.4.0 的结构化报告
+→ 符合 global-analysis/1.5.0 的结构化报告
 → PostgreSQL 幂等 Analysis Run
 → River 可靠任务
 → Discord Webhook
@@ -35,13 +35,17 @@ DART SK hynix 公司 RSS 中的衍生品交易损失首次披露
 → Fundamental / Entry 缺失显式为 `null`
 → `OBSERVE + NO_TRADE + SHADOW_ONLY` 确定性安全门
 → 只读降级全局分析；正式 Discord 投递 fail closed
+
+Hyperliquid `xyz:SKHY` 720 小时 funding/premium + 已完成 UTC 日线
+→ 确定性 Crowding 组件、覆盖门与 Evidence
+→ 历史 OI 明确 `UNAVAILABLE`；不足 4 项不输出状态
 ```
 
 缺少核心行情时返回 `SKIPPED_SOURCE_INCOMPLETE`，不会调用 AI 或发送残缺报告。
 
-Analysis Bundle 固定保存稳定分析身份、输入哈希、Observation、六个核心指标、Price Structure、Catalyst Evaluation、Trend Score、Memory 结果和数据质量。精确重放返回同一组历史 ID；身份相同但输入不同会显式冲突。Trend 方向只查询规则版本、主资产、phase、window type 和可用组件集合完全相同的前值，Memory 只按 session date 顺序演进。
+Analysis Bundle 固定保存稳定分析身份、输入哈希、Observation、六个核心指标、Price Structure、Catalyst Evaluation、Crowding、Trend Score、Memory 结果和数据质量。精确重放返回同一组历史 ID；身份相同但输入不同会显式冲突。Trend 方向只查询规则版本、主资产、phase、window type 和可用组件集合完全相同的前值，Memory 只按 session date 顺序演进。
 
-SKHY Price Structure 只使用 Hyperliquid `xyz:SKHY` 已完成的 UTC `1d` candle。至少 50 根连续已完成日线时计算 EMA20、EMA50、ATR14 和评估日前 20 日支撑低点，并把 Trend 覆盖率从 80% 提升到 90%；历史不足、序列异常或来源失败时保持 `UNAVAILABLE`。2026-08-15 live check 只有 37 根已完成日线，所以当前真实结果仍为 `UNAVAILABLE`。Foreign Flow 的 KRX 可行性结论为 `NO-GO`：公开 API 不覆盖所需投资者分类，当前项目也没有允许后台派生计算与 Discord 输出的数据合同，因此不接入、不抓取网页私有接口，也不从价格反推。Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
+SKHY Price Structure 只使用 Hyperliquid `xyz:SKHY` 已完成的 UTC `1d` candle。至少 50 根连续已完成日线时计算 EMA20、EMA50、ATR14 和评估日前 20 日支撑低点，并把 Trend 覆盖率从 80% 提升到 90%；历史不足、序列异常或来源失败时保持 `UNAVAILABLE`。2026-08-16 Crowding live check 有 38 根已完成日线，funding、premium、volume 三项可用，但 price extension 与历史 OI 不可用，所以 Crowding 仍为 `UNAVAILABLE`。Foreign Flow 的 KRX 可行性结论为 `NO-GO`：公开 API 不覆盖所需投资者分类，当前项目也没有允许后台派生计算与 Discord 输出的数据合同，因此不接入、不抓取网页私有接口，也不从价格反推。Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
 
 ## 配置边界
 
@@ -108,6 +112,14 @@ go run ./cmd/catalyst-check
 ```
 
 当前只识别 SK hynix DART 公司 RSS 中报告名精确为 `파생상품거래손실발생` 的首次披露。DART 没有最近受支持事件时输出 `NO_RECENT_SUPPORTED_EVENT`；更正、补充或撤回输出 `DATA_CONFLICT`。不会回退到 SK hynix Newsroom、搜索、网页识别、媒体或第二价格源，也不会调用 AI、Discord 或交易接口。
+
+验证真实 SKHY Crowding（只读）：
+
+```bash
+go run ./cmd/crowding-check
+```
+
+命令按官方 500 条上限分页读取 720 小时 funding/premium，并读取完成日线计算价格延伸和 20 日量能。公共 API 没有历史 OI，当前 OI 只保留为来源事实；不足 4 项时输出 `UNAVAILABLE` 和各组件原因。命令不调用 AI、Discord 或交易接口，也不输出完整历史数组。
 
 生成真实降级全局分析（只读 shadow）：
 

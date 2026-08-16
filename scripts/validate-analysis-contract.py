@@ -16,7 +16,7 @@ FIXTURES = ROOT / "testdata" / "global-analysis" / "v1"
 DATA_SOURCE_FIXTURES = ROOT / "testdata" / "data-sources" / "hyperliquid"
 DART_FIXTURES = ROOT / "testdata" / "data-sources" / "dart"
 STATE_ORDER = ["WEAK", "IMPROVING", "CONFIRMED", "STRONG", "PERSISTENT_STRONG"]
-RULE_VERSION = "global-analysis/1.4.0"
+RULE_VERSION = "global-analysis/1.5.0"
 
 
 class ValidationError(Exception):
@@ -197,6 +197,21 @@ def validate_skhy_daily_live_fixture() -> None:
     require(fixture["last"]["T"] > request["endTime"], "SKHY 日线 fixture 必须证明形成中 candle 被排除")
 
 
+def validate_crowding_live_fixture() -> None:
+    fixture = load_json(DATA_SOURCE_FIXTURES / "t012-skhy-crowding-live-check.json")
+    require(fixture["source"] == "hyperliquid" and fixture["symbol"] == "xyz:SKHY", "Crowding live fixture 来源错误")
+    require(fixture["public_read_only"] is True and fixture["contains_secrets"] is False, "Crowding live fixture 安全边界错误")
+    require(fixture["full_history_stored"] is False and fixture["raw_redistribution"] == "UNCONFIRMED", "Crowding live fixture 保存边界错误")
+    require(fixture["funding_history"]["page_counts"] == [500, 220], "Crowding funding 分页证据错误")
+    require(sum(fixture["funding_history"]["page_counts"]) == fixture["funding_history"]["required_samples"], "Crowding funding 覆盖不足")
+    require(fixture["availability"] == "UNAVAILABLE" and fixture["available_inputs"] == 3, "Crowding 当前覆盖门错误")
+    components = fixture["components"]
+    require(components["open_interest"]["reason"] == "HISTORICAL_OI_UNAVAILABLE", "Crowding 不得伪造历史 OI")
+    require(components["price_extension"]["completed_daily_bars"] < 50, "Crowding live fixture 不再表达日线历史不足")
+    hashes = fixture["funding_history"]["response_sha256"] + [fixture["daily_response_sha256"], fixture["context_response_sha256"]]
+    require(all(len(value) == 64 for value in hashes), "Crowding live fixture 缺少响应哈希")
+
+
 def validate_dart_live_fixture() -> None:
     path = DART_FIXTURES / "t010-skhy-company-rss.xml"
     try:
@@ -224,6 +239,21 @@ def validate_price_structure_boundaries() -> None:
         "below_broken_threshold_is_broken": "BROKEN",
     }
     require({case["name"]: case["expected_state"] for case in fixture["cases"]} == expected, "Price Structure 边界向量不完整")
+
+
+def validate_crowding_boundaries() -> None:
+    fixture = load_json(FIXTURES / "crowding-boundaries.json")
+    require(fixture["rule_version"] == RULE_VERSION, "Crowding 向量规则版本错误")
+    expected = {
+        "zero_triggers_is_low": "LOW",
+        "one_trigger_is_normal": "NORMAL",
+        "two_triggers_is_normal": "NORMAL",
+        "three_triggers_is_high": "HIGH",
+        "four_triggers_below_extreme_extension_is_high": "HIGH",
+        "four_triggers_at_extreme_extension_is_extreme": "EXTREME",
+        "five_triggers_is_extreme": "EXTREME",
+    }
+    require({case["name"]: case["expected_state"] for case in fixture["cases"]} == expected, "Crowding 边界向量不完整")
 
 
 def rs_state(value: float) -> str:
@@ -316,9 +346,11 @@ def main() -> int:
         validate_hyperliquid_failure_policy()
         validate_hyperliquid_live_fixture()
         validate_skhy_daily_live_fixture()
+        validate_crowding_live_fixture()
         validate_dart_live_fixture()
         validate_relative_strength_boundaries()
         validate_price_structure_boundaries()
+        validate_crowding_boundaries()
         validate_scenarios()
         validate_memory_transitions()
         validate_markdown_links()
