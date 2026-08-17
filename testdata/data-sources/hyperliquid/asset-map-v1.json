@@ -1,6 +1,6 @@
 {
   "mapping_version": "trade-xyz/1.0.0",
-  "rule_version": "global-analysis/1.6.0",
+  "rule_version": "global-analysis/1.7.0",
   "source": "hyperliquid",
   "dex": "xyz",
   "mappings": [

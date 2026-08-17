@@ -64,6 +64,83 @@ func TestEvaluateReportSafetyRequiresInvalidationForTradeStructure(t *testing.T)
 	}
 }
 
+func TestEvaluateReportSafetyKeepsIncompleteConfirmationShadowOnlyWithAvailableEntry(t *testing.T) {
+	for name, state := range map[string]string{"unavailable": "UNAVAILABLE", "failed": "FAIL"} {
+		t.Run(name, func(t *testing.T) {
+			report := loadSafetyReport(t)
+			chain := report["confirmation_chain"].(map[string]any)
+			chain["status"] = map[string]string{"unavailable": "INCOMPLETE", "failed": "BROKEN"}[name]
+			chain["first_break"] = float64(4)
+			step := chain["steps"].([]any)[3].(map[string]any)
+			step["status"] = state
+			if state == "UNAVAILABLE" {
+				step["evidence_refs"] = []any{}
+			}
+			setNoTradeStrategy(report)
+
+			decision, err := EvaluateReportSafety(encodeSafetyReport(t, report))
+			if err != nil {
+				t.Fatalf("EvaluateReportSafety() error = %v", err)
+			}
+			if decision.FormalDeliveryAllowed || decision.Action != "NO_ENTRY" || decision.Route != "SHADOW_ONLY" || decision.Reason != "CONFIRMATION_CHAIN_INCOMPLETE" {
+				t.Fatalf("incomplete confirmation decision = %#v", decision)
+			}
+		})
+	}
+}
+
+func TestEvaluateReportSafetyRejectsMalformedConfirmationChain(t *testing.T) {
+	for name, mutate := range map[string]func(map[string]any){
+		"complete with first break": func(chain map[string]any) { chain["first_break"] = float64(4) },
+		"duplicate position": func(chain map[string]any) {
+			chain["steps"].([]any)[5].(map[string]any)["position"] = float64(5)
+		},
+		"pass without evidence": func(chain map[string]any) {
+			chain["steps"].([]any)[0].(map[string]any)["evidence_refs"] = []any{}
+		},
+		"complete with unavailable step": func(chain map[string]any) {
+			chain["steps"].([]any)[3].(map[string]any)["status"] = "UNAVAILABLE"
+		},
+		"broken without failed step": func(chain map[string]any) {
+			chain["status"] = "BROKEN"
+			chain["first_break"] = float64(4)
+			chain["steps"].([]any)[3].(map[string]any)["status"] = "UNAVAILABLE"
+		},
+		"incomplete with failed step": func(chain map[string]any) {
+			chain["status"] = "INCOMPLETE"
+			chain["first_break"] = float64(4)
+			chain["steps"].([]any)[3].(map[string]any)["status"] = "FAIL"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			report := loadSafetyReport(t)
+			mutate(report["confirmation_chain"].(map[string]any))
+			if _, err := EvaluateReportSafety(encodeSafetyReport(t, report)); err == nil || !strings.Contains(err.Error(), "confirmation chain") {
+				t.Fatalf("malformed chain error = %v", err)
+			}
+		})
+	}
+}
+
+func TestEvaluateReportSafetyKeepsNoTradeShadowOnlyEvenWhenEntryAndChainAreComplete(t *testing.T) {
+	report := loadSafetyReport(t)
+	setNoTradeStrategy(report)
+	decision, err := EvaluateReportSafety(encodeSafetyReport(t, report))
+	if err != nil {
+		t.Fatalf("EvaluateReportSafety() error = %v", err)
+	}
+	if decision.FormalDeliveryAllowed || decision.Reason != "STRATEGY_NO_TRADE" {
+		t.Fatalf("NO_TRADE decision = %#v", decision)
+	}
+}
+
+func TestEvaluateReportSafetyAllowsCompleteConfirmedTrade(t *testing.T) {
+	decision, err := EvaluateReportSafety(encodeSafetyReport(t, loadSafetyReport(t)))
+	if err != nil || !decision.FormalDeliveryAllowed || decision.Action != "ENTRY_ALLOWED" || decision.Route != "FORMAL" {
+		t.Fatalf("formal decision = %#v, err = %v", decision, err)
+	}
+}
+
 func TestCatalystEntryValueRespectsEventAndTradeDirections(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -108,4 +185,12 @@ func encodeSafetyReport(t *testing.T, report map[string]any) []byte {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+func setNoTradeStrategy(report map[string]any) {
+	strategy := report["strategy"].(map[string]any)
+	strategy["current"] = "OBSERVE"
+	strategy["best_structure"] = "NO_TRADE"
+	strategy["rationale"] = "确认链不完整，仅保留观察结论。"
+	strategy["invalidation_conditions"] = []any{}
 }

@@ -225,7 +225,7 @@ func unavailableComponents(specs []struct {
 }
 
 func shadowConfirmation(bundle AnalysisBundle, evidenceIDs map[string]string, catalystRefs []string) map[string]any {
-	steps := []any{
+	steps := []map[string]any{
 		confirmationStep(1, "xyz:MU 跑赢 xyz:SMH", relativePass(bundle.Indicators.Relative[IndicatorMemoryRelativeStrength]), []string{evidenceIDs[IndicatorMemoryRelativeStrength]}),
 		confirmationStep(2, "xyz:SKHY 跑赢 xyz:SMSN", relativePass(bundle.Indicators.Relative[IndicatorSKHYSectorAlpha]), []string{evidenceIDs[IndicatorSKHYSectorAlpha]}),
 		confirmationStep(3, "xyz:SKHY 跑赢 xyz:KR200", relativePass(bundle.Indicators.Relative[IndicatorSKHYMarketAlpha]), []string{evidenceIDs[IndicatorSKHYMarketAlpha]}),
@@ -233,7 +233,23 @@ func shadowConfirmation(bundle AnalysisBundle, evidenceIDs map[string]string, ca
 		confirmationStep(5, "价格接受 Catalyst", catalystStep(bundle.Catalyst), catalystRefs),
 		confirmationStep(6, "Trend Score 提高", trendStep(bundle.Trend), []string{evidenceIDs["trend"]}),
 	}
-	return map[string]any{"status": "INCOMPLETE", "first_break": 4, "steps": steps}
+	status := "COMPLETE"
+	var firstBreak any
+	for _, step := range steps {
+		stepStatus := step["status"].(string)
+		if stepStatus == "PASS" {
+			continue
+		}
+		if firstBreak == nil {
+			firstBreak = step["position"]
+		}
+		if stepStatus == "FAIL" {
+			status = "BROKEN"
+		} else if status == "COMPLETE" {
+			status = "INCOMPLETE"
+		}
+	}
+	return map[string]any{"status": status, "first_break": firstBreak, "steps": steps}
 }
 
 func confirmationStep(position int, name, status string, refs []string) map[string]any {

@@ -23,6 +23,12 @@ type ReportSafetyDecision struct {
 	Reason                string `json:"reason"`
 }
 
+type confirmationChainStep struct {
+	Position     int      `json:"position"`
+	Status       string   `json:"status"`
+	EvidenceRefs []string `json:"evidence_refs"`
+}
+
 type reportSafetyInput struct {
 	Scores struct {
 		Entry struct {
@@ -30,6 +36,11 @@ type reportSafetyInput struct {
 			CoveragePct json.Number  `json:"coverage_pct"`
 		} `json:"entry"`
 	} `json:"scores"`
+	ConfirmationChain struct {
+		Status     string                  `json:"status"`
+		FirstBreak *int                    `json:"first_break"`
+		Steps      []confirmationChainStep `json:"steps"`
+	} `json:"confirmation_chain"`
 	Strategy struct {
 		Current                string `json:"current"`
 		BestStructure          string `json:"best_structure"`
@@ -54,36 +65,91 @@ func EvaluateReportSafety(report []byte) (ReportSafetyDecision, error) {
 	if err != nil || coverage < 0 || coverage > 100 {
 		return ReportSafetyDecision{}, errors.New("invalid Entry coverage")
 	}
-	degraded := input.Scores.Entry.Value == nil || coverage < 70
-	if degraded {
-		if input.Strategy.Current != "OBSERVE" && input.Strategy.Current != "WAIT" {
-			return ReportSafetyDecision{}, errors.New("degraded analysis must use OBSERVE or WAIT")
-		}
-		if input.Strategy.BestStructure != "NO_TRADE" {
-			return ReportSafetyDecision{}, errors.New("degraded analysis must use NO_TRADE")
-		}
-		if len(input.Strategy.InvalidationConditions) != 0 {
-			return ReportSafetyDecision{}, errors.New("NO_TRADE must not invent trade invalidation conditions")
-		}
-		if containsActionableTradeLanguage(input.Strategy.Rationale) {
-			return ReportSafetyDecision{}, errors.New("degraded analysis contains actionable trade language")
+	confirmationComplete, err := validateConfirmationChain(input.ConfirmationChain.Status, input.ConfirmationChain.FirstBreak, input.ConfirmationChain.Steps)
+	if err != nil {
+		return ReportSafetyDecision{}, err
+	}
+	reason := ""
+	if input.Scores.Entry.Value == nil || coverage < 70 {
+		reason = "ENTRY_COVERAGE_INSUFFICIENT"
+	} else if !confirmationComplete {
+		reason = "CONFIRMATION_CHAIN_INCOMPLETE"
+	} else if input.Strategy.BestStructure == "NO_TRADE" {
+		reason = "STRATEGY_NO_TRADE"
+	}
+	if reason != "" {
+		if err := validateShadowStrategy(input); err != nil {
+			return ReportSafetyDecision{}, err
 		}
 		return ReportSafetyDecision{
 			Action: "NO_ENTRY", Route: "SHADOW_ONLY", FormalDeliveryAllowed: false,
-			Reason: "ENTRY_COVERAGE_INSUFFICIENT",
+			Reason: reason,
 		}, nil
 	}
-	if input.Strategy.BestStructure != "NO_TRADE" {
-		if len(input.Strategy.InvalidationConditions) == 0 {
-			return ReportSafetyDecision{}, errors.New("trade structure requires an invalidation condition")
-		}
-		for _, condition := range input.Strategy.InvalidationConditions {
-			if len(condition.EvidenceRefs) == 0 {
-				return ReportSafetyDecision{}, errors.New("trade invalidation requires evidence")
-			}
+	if len(input.Strategy.InvalidationConditions) == 0 {
+		return ReportSafetyDecision{}, errors.New("trade structure requires an invalidation condition")
+	}
+	for _, condition := range input.Strategy.InvalidationConditions {
+		if validateEvidenceRefs(condition.EvidenceRefs) != nil {
+			return ReportSafetyDecision{}, errors.New("trade invalidation requires valid evidence")
 		}
 	}
 	return ReportSafetyDecision{Action: "ENTRY_ALLOWED", Route: "FORMAL", FormalDeliveryAllowed: true, Reason: "ENTRY_GATE_PASSED"}, nil
+}
+
+func validateConfirmationChain(status string, firstBreak *int, steps []confirmationChainStep) (bool, error) {
+	if len(steps) != 6 || status != "COMPLETE" && status != "BROKEN" && status != "INCOMPLETE" {
+		return false, errors.New("invalid confirmation chain")
+	}
+	statuses := make([]string, 6)
+	hasFail, hasUnavailable := false, false
+	for _, step := range steps {
+		if step.Position < 1 || step.Position > 6 || statuses[step.Position-1] != "" || step.Status != "PASS" && step.Status != "FAIL" && step.Status != "UNAVAILABLE" {
+			return false, errors.New("invalid confirmation chain step")
+		}
+		if len(step.EvidenceRefs) > 0 && validateEvidenceRefs(step.EvidenceRefs) != nil || step.Status != "UNAVAILABLE" && len(step.EvidenceRefs) == 0 {
+			return false, errors.New("invalid confirmation chain evidence")
+		}
+		hasFail = hasFail || step.Status == "FAIL"
+		hasUnavailable = hasUnavailable || step.Status == "UNAVAILABLE"
+		statuses[step.Position-1] = step.Status
+	}
+	firstNonPass := 0
+	for index, stepStatus := range statuses {
+		if stepStatus != "PASS" {
+			firstNonPass = index + 1
+			break
+		}
+	}
+	if status == "COMPLETE" {
+		if firstBreak != nil || firstNonPass != 0 {
+			return false, errors.New("invalid complete confirmation chain")
+		}
+		return true, nil
+	}
+	if firstBreak == nil || *firstBreak != firstNonPass || firstNonPass == 0 {
+		return false, errors.New("invalid incomplete confirmation chain")
+	}
+	if status == "BROKEN" && !hasFail || status == "INCOMPLETE" && (!hasUnavailable || hasFail) {
+		return false, errors.New("inconsistent confirmation chain status")
+	}
+	return false, nil
+}
+
+func validateShadowStrategy(input reportSafetyInput) error {
+	if input.Strategy.Current != "OBSERVE" && input.Strategy.Current != "WAIT" {
+		return errors.New("degraded analysis must use OBSERVE or WAIT")
+	}
+	if input.Strategy.BestStructure != "NO_TRADE" {
+		return errors.New("degraded analysis must use NO_TRADE")
+	}
+	if len(input.Strategy.InvalidationConditions) != 0 {
+		return errors.New("NO_TRADE must not invent trade invalidation conditions")
+	}
+	if containsActionableTradeLanguage(input.Strategy.Rationale) {
+		return errors.New("degraded analysis contains actionable trade language")
+	}
+	return nil
 }
 
 func CatalystEntryValue(eventDirection MarketDirection, state CatalystState, tradeDirection TradeDirection) (string, error) {

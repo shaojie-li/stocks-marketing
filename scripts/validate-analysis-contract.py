@@ -17,7 +17,7 @@ DATA_SOURCE_FIXTURES = ROOT / "testdata" / "data-sources" / "hyperliquid"
 DART_FIXTURES = ROOT / "testdata" / "data-sources" / "dart"
 OPENDART_FIXTURES = ROOT / "testdata" / "data-sources" / "opendart"
 STATE_ORDER = ["WEAK", "IMPROVING", "CONFIRMED", "STRONG", "PERSISTENT_STRONG"]
-RULE_VERSION = "global-analysis/1.6.0"
+RULE_VERSION = "global-analysis/1.7.0"
 
 
 class ValidationError(Exception):
@@ -71,6 +71,8 @@ def validate_report() -> None:
 
     positions = [step["position"] for step in report["confirmation_chain"]["steps"]]
     require(positions == [1, 2, 3, 4, 5, 6], "确认链必须按 1–6 排列")
+    require(report["confirmation_chain"]["status"] == "COMPLETE" and report["confirmation_chain"]["first_break"] is None, "正式样例确认链必须完整")
+    require(all(step["status"] == "PASS" and step["evidence_refs"] for step in report["confirmation_chain"]["steps"]), "正式样例确认链每步必须 PASS 且有证据")
 
     macro = [item for item in report["evidence"] if item["category"] == "MACRO_EVENT"]
     require(macro, "样例报告必须包含宏观证据")
@@ -211,6 +213,20 @@ def validate_crowding_live_fixture() -> None:
     require(components["price_extension"]["completed_daily_bars"] < 50, "Crowding live fixture 不再表达日线历史不足")
     hashes = fixture["funding_history"]["response_sha256"] + [fixture["daily_response_sha256"], fixture["context_response_sha256"]]
     require(all(len(value) == 64 for value in hashes), "Crowding live fixture 缺少响应哈希")
+
+
+def validate_entry_readiness_live_fixture() -> None:
+    fixture = load_json(DATA_SOURCE_FIXTURES / "t014-entry-readiness-live-check.json")
+    require(fixture["source"] == "hyperliquid" and fixture["symbol"] == "xyz:SKHY", "Entry readiness fixture 来源错误")
+    require(fixture["public_read_only"] is True and fixture["contains_secrets"] is False, "Entry readiness fixture 安全边界错误")
+    daily = fixture["daily"]
+    require(daily["completed"] < daily["minimum_completed_bars"] and daily["forming_excluded"] == 1, "Entry readiness fixture 不再表达日线不足")
+    book = fixture["book"]
+    require(float(book["spread_pct"]) <= 0.30, "Entry readiness 合约价差超过冻结门槛")
+    require(min(float(book["bid_depth_50bps_usd"]), float(book["ask_depth_50bps_usd"])) >= 100_000, "Entry readiness 合约深度不足")
+    require(fixture["entry_availability"] == "UNAVAILABLE" and fixture["foreign_flow"] == "UNAVAILABLE", "Entry readiness 不得补齐缺失输入")
+    require(all(len(value) == 64 for value in (daily["response_sha256"], book["response_sha256"])), "Entry readiness fixture 缺少响应哈希")
+    require(not any(fixture[key] for key in ("llm_invoked", "discord_invoked", "trading_api_invoked")), "Entry readiness live check 调用了禁止接口")
 
 
 def validate_dart_live_fixture() -> None:
@@ -365,6 +381,7 @@ def main() -> int:
         validate_hyperliquid_live_fixture()
         validate_skhy_daily_live_fixture()
         validate_crowding_live_fixture()
+        validate_entry_readiness_live_fixture()
         validate_dart_live_fixture()
         validate_opendart_fundamental_live_fixture()
         validate_relative_strength_boundaries()

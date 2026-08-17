@@ -1,8 +1,8 @@
 # 全局交易分析契约
 
-状态：Frozen v1.6.0
-规则版本：`global-analysis/1.6.0`
-更新日期：2026-08-16
+状态：Frozen v1.7.0
+规则版本：`global-analysis/1.7.0`
+更新日期：2026-08-17
 
 ## 1. 目标与边界
 
@@ -327,6 +327,10 @@ Catalyst Entry 组件使用拟评估交易方向，而不是用户现有持仓�
 
 该判断由确定性质量门执行。模型只能解释缺失原因和已有证据，不能把高 Trend、利空韧性或其他局部强势改写成 Entry。降级报告只允许输出到 stdout、shadow 频道或审计存储；正式 `App.Submit` 必须在创建 Analysis Run、delivery、River job 或 Discord 请求前拒绝。
 
+T-014 把六层确认链加入同一正式投递门。只有 Entry `value` 非空且覆盖率不低于 70%、确认链 `status = COMPLETE`、`first_break = null`、位置 1–6 唯一且全部 `PASS`、每步均有 Evidence，并且策略不是 `NO_TRADE` 且至少包含一个带 Evidence 的客观失效条件时，才允许 `ENTRY_ALLOWED / FORMAL`。有效但不完整的确认链固定返回 `NO_ENTRY / SHADOW_ONLY / CONFIRMATION_CHAIN_INCOMPLETE`；完整链配 `NO_TRADE` 固定返回 `STRATEGY_NO_TRADE`。矛盾状态、断点错误、位置重复/缺失或 PASS 无 Evidence 直接 fail closed。`App.Submit` 在任何数据库/River 副作用前执行，worker 在 Discord 请求前再次执行同一门。
+
+2026-08-17 真实只读检查只有 39 根已完成 `xyz:SKHY` UTC 日线，尚未达到 Price Structure/Crowding 的 50 根门；韩国现货参考腿仍无获准来源。因此 T-014 不实现完整 Entry，不降低门槛，也不补第二价格源。规则版本提升为 `global-analysis/1.7.0`。
+
 以下 Entry 规则仍要求正式交易时段数据，T-008 不实现：
 
 - `HEALTHY_PULLBACK_WITH_BID`：Trend 不为下降，日内最低价进入 `EMA20 ± 0.5 * ATR14`，正式收盘重新站上 EMA20，且收盘位于当日振幅上半区。
@@ -436,6 +440,7 @@ Data Completeness 按本次 phase 的必需输入权重计算：
 - `global-analysis/1.4.0`：冻结降级分析的 `OBSERVE/WAIT + NO_TRADE + SHADOW_ONLY` 安全门、方向感知的 Catalyst Entry 语义，以及正式投递前的 fail-closed 校验。
 - `global-analysis/1.5.0`：冻结 Hyperliquid `xyz:SKHY` funding/premium、日线延伸与量能 Crowding，明确历史 OI 不可回补、至少 4 项覆盖门和 Crowding 单项不得绕过 Entry 安全门。
 - `global-analysis/1.6.0`：冻结 OpenDART 最终定期报告 Fundamental 五组件、90% 覆盖门、监管/客户风险不可用和 TLS 兼容边界。
+- `global-analysis/1.7.0`：把完整六层确认链、非 `NO_TRADE` 结构和带 Evidence 的客观失效位加入正式投递安全门；当前 Entry 覆盖不足继续 fail closed。
 
 ## 14. 验证资产
 

@@ -48,7 +48,7 @@ func TestBuildAnalysisBundleIsDeterministicAndKeepsUnavailableSignalsExplicit(t 
 	if third.Memory.SessionDate != "2026-08-15" {
 		t.Fatalf("civil session date shifted across timezone: %s", third.Memory.SessionDate)
 	}
-	if first.Identity.RuleVersion != "global-analysis/1.6.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
+	if first.Identity.RuleVersion != "global-analysis/1.7.0" || first.Identity.WindowType != "CONTRACT_24H" || first.Identity.WindowStart != "2026-08-14T06:00:00Z" || first.Identity.WindowEnd != first.Identity.AsOfBucket {
 		t.Fatalf("stable identity is incomplete: %#v", first.Identity)
 	}
 	if first.Trend.Value != "9.4" || first.Trend.CoveragePct != 80 || first.Trend.ConfidenceMax != ConfidenceMedium || first.Trend.Direction != "" {
@@ -113,7 +113,7 @@ func TestBuildAnalysisBundleUsesComparableScoreAndPreviousMemory(t *testing.T) {
 	}
 	previousTrend.Value = "8.9"
 	previousMemory := &MemoryTrendTransition{
-		RuleVersion: "global-analysis/1.6.0", State: MemoryTrendImproving,
+		RuleVersion: "global-analysis/1.7.0", State: MemoryTrendImproving,
 		SupportiveStreak: 1, AdverseStreak: 1, SessionDate: "2026-08-14",
 	}
 	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
@@ -292,6 +292,38 @@ func TestBuildDegradedShadowReportRejectsInvalidTrendScore(t *testing.T) {
 	bundle.Trend.Value = "not-a-score"
 	if _, err = BuildDegradedShadowReport(bundle); err == nil {
 		t.Fatal("invalid Trend Score was silently accepted")
+	}
+}
+
+func TestBuildDegradedShadowReportUsesFirstNonPassConfirmationStep(t *testing.T) {
+	observations := coreObservations()
+	for index := range observations {
+		if observations[index].Symbol == "xyz:MU" {
+			observations[index].ChangePct = "-1.00"
+		}
+	}
+	bundle, err := BuildAnalysisBundle(AnalysisBundleInput{
+		Phase: "GLOBAL", PrimaryAsset: "xyz:SKHY", AsOf: "2026-08-15T06:00:00Z",
+		AsOfBucket: "2026-08-15T06:00:00Z", Observations: observations,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := BuildDegradedShadowReport(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded struct {
+		ConfirmationChain struct {
+			Status     string `json:"status"`
+			FirstBreak int    `json:"first_break"`
+		} `json:"confirmation_chain"`
+	}
+	if err := json.Unmarshal(report, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.ConfirmationChain.Status != "BROKEN" || decoded.ConfirmationChain.FirstBreak != 1 {
+		t.Fatalf("confirmation chain = %#v", decoded.ConfirmationChain)
 	}
 }
 

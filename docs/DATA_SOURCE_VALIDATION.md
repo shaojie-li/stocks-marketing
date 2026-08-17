@@ -219,6 +219,12 @@ SK hynix Newsroom 的现行 Terms 只允许非商业使用，并明确禁止 rob
 
 现场检查只保存必要字段投影、计数、时间边界和响应 SHA-256，不保存或再分发完整 funding/candle 数组。raw redistribution 继续标记 `UNCONFIRMED`。Foreign Flow 仍是独立的 `NO-GO` 信号，禁止由 funding、premium、OI、成交量或价格延伸反推。
 
+### 10.4 Entry readiness 与确认链边界
+
+2026-08-17 对 Hyperliquid 官方公共 API 做只读复核：`xyz:SKHY` 日线返回 40 根，其中 39 根 close time 严格早于检查时点，最后一根仍在形成；因此 Price Structure 和 Crowding price extension 继续 `UNAVAILABLE / INSUFFICIENT_HISTORY`。同一时点 `l2Book` 返回双边各 20 档，有效价差约 `0.00579828%`，50 bps 内 bid/ask 名义深度分别约 `834,959.58 / 824,278.83 USD`。这些结果只证明当时的 Hyperliquid 合约腿可执行性，不能补齐韩国现货参考腿或永久保证未来流动性。脱敏投影与响应哈希见 [`t014-entry-readiness-live-check.json`](../testdata/data-sources/hyperliquid/t014-entry-readiness-live-check.json)。
+
+当前完整 Entry 结论为 `NO-GO`：日线不足 50 根，正式交易时段健康回踩规则没有唯一价格源下的获准输入，韩国现货参考腿也不可用。不得降低门槛、把连续合约 UTC 日线冒充韩国正式收盘、用当前盘口代替历史事实或接入第二价格源。T-014 只加强确认链正式投递门；日线自然达到 50 根后再用独立任务冻结可真实验收的 Entry 公式。
+
 ## 11. 可重放验证
 
 公共只读探针只依赖 Python 标准库，不读取账户、地址、token 或 header：

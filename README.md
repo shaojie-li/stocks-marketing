@@ -22,7 +22,7 @@ DART SK hynix 公司 RSS 中的衍生品交易损失首次披露
 
 固定分析 fixture
 → 同窗口核心指标
-→ 符合 global-analysis/1.6.0 的结构化报告
+→ 符合 global-analysis/1.7.0 的结构化报告
 → PostgreSQL 幂等 Analysis Run
 → River 可靠任务
 → Discord Webhook
@@ -33,7 +33,7 @@ DART SK hynix 公司 RSS 中的衍生品交易损失首次披露
 
 真实 Analysis Bundle
 → Fundamental（源不可用时）/ Entry 缺失显式为 `null`
-→ `OBSERVE + NO_TRADE + SHADOW_ONLY` 确定性安全门
+→ Entry 覆盖门 + 六层确认链 + `NO_TRADE` 确定性安全门
 → 只读降级全局分析；正式 Discord 投递 fail closed
 
 Hyperliquid `xyz:SKHY` 720 小时 funding/premium + 已完成 UTC 日线
@@ -49,7 +49,7 @@ OpenDART SK hynix 最新正式定期报告 + CFS XBRL 财务科目
 
 Analysis Bundle 固定保存稳定分析身份、输入哈希、Observation、六个核心指标、Price Structure、Catalyst Evaluation、Crowding、Fundamental、Trend Score、Memory 结果和数据质量。精确重放返回同一组历史 ID；身份相同但输入不同会显式冲突。Trend 方向只查询规则版本、主资产、phase、window type 和可用组件集合完全相同的前值，Memory 只按 session date 顺序演进。
 
-SKHY Price Structure 只使用 Hyperliquid `xyz:SKHY` 已完成的 UTC `1d` candle。至少 50 根连续已完成日线时计算 EMA20、EMA50、ATR14 和评估日前 20 日支撑低点，并把 Trend 覆盖率从 80% 提升到 90%；历史不足、序列异常或来源失败时保持 `UNAVAILABLE`。2026-08-16 Crowding live check 有 38 根已完成日线，funding、premium、volume 三项可用，但 price extension 与历史 OI 不可用，所以 Crowding 仍为 `UNAVAILABLE`。Foreign Flow 的 KRX 可行性结论为 `NO-GO`：公开 API 不覆盖所需投资者分类，当前项目也没有允许后台派生计算与 Discord 输出的数据合同，因此不接入、不抓取网页私有接口，也不从价格反推。Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
+SKHY Price Structure 只使用 Hyperliquid `xyz:SKHY` 已完成的 UTC `1d` candle。至少 50 根连续已完成日线时计算 EMA20、EMA50、ATR14 和评估日前 20 日支撑低点，并把 Trend 覆盖率从 80% 提升到 90%；历史不足、序列异常或来源失败时保持 `UNAVAILABLE`。2026-08-17 Entry readiness live check 只有 39 根已完成日线，完整 Entry 继续 `NO-GO`。即使未来 Entry 覆盖率达到 70%，六层确认链任一层 `FAIL/UNAVAILABLE` 或策略仍为 `NO_TRADE` 时也只能进入 `SHADOW_ONLY`。Foreign Flow 的 KRX 可行性结论为 `NO-GO`：公开 API 不覆盖所需投资者分类，当前项目也没有允许后台派生计算与 Discord 输出的数据合同，因此不接入、不抓取网页私有接口，也不从价格反推。Memory 保持前态、清零 streak，Confidence 上限为 `LOW`。
 
 ## 配置边界
 
