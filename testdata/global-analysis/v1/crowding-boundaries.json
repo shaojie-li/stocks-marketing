@@ -1,5 +1,5 @@
 {
-  "rule_version": "global-analysis/1.6.0",
+  "rule_version": "global-analysis/1.7.0",
   "cases": [
     { "name": "zero_triggers_is_low", "trigger_count": 0, "extension_atr": "0", "expected_state": "LOW" },
     { "name": "one_trigger_is_normal", "trigger_count": 1, "extension_atr": "0", "expected_state": "NORMAL" },

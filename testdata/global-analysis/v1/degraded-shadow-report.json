@@ -461,7 +461,7 @@
   "phase": "GLOBAL",
   "primary_asset": "xyz:SKHY",
   "prompt_version": "shadow-deterministic/1.0.0",
-  "rule_version": "global-analysis/1.6.0",
+  "rule_version": "global-analysis/1.7.0",
   "schema_version": "1.0.0",
   "scores": {
     "entry": {

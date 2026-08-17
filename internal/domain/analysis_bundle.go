@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const GlobalAnalysisRuleVersion = "global-analysis/1.6.0"
+const GlobalAnalysisRuleVersion = "global-analysis/1.7.0"
 
 type AnalysisIdentity struct {
 	RuleVersion  string `json:"rule_version"`

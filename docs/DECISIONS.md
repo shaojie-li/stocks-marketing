@@ -255,3 +255,29 @@ SK hynix Newsroom 虽提供 RSS，但现行条款禁止 robot/spider 自动监�
 - 系统首次能输出真实可审计的 Fundamental Score，同时明确保留未覆盖风险。
 - OpenDART 当前要求显式启用 TLS 1.2 RSA-GCM 兼容套件；若官方升级协议可删除该兼容配置。
 - 后续仍需完整 Entry/确认链和真实 Bundle→AI→Discord 闭环；Fundamental 可用不授权正式交易建议。
+
+## D-011 不完整确认链不得进入正式投递
+
+- 状态：Accepted
+- 日期：2026-08-17
+- 关联：[T-014](https://github.com/shaojie-li/stocks-marketing/issues/28)
+
+### 背景
+
+现有正式投递门只检查 Entry 值、70% 覆盖率和失效条件，没有验证六层确认链，也会把 Entry 可用但策略仍为 `NO_TRADE` 的报告判为可投递。未来 Crowding 或其他 Entry 组件逐步可用后，这会允许 Foreign Flow 仍缺失、确认链断裂的局部结果越过 T-011。
+
+2026-08-17 Hyperliquid 官方实时响应只有 39 根已完成 `xyz:SKHY` UTC 日线，尚未达到 Price Structure/Crowding 的 50 根门。合约盘口和 50 bps 深度当前充足，但韩国现货参考腿仍无获准数据路径，因此现在实现完整 Entry 会依赖未验证公式、降低历史门槛或补第二价格源。
+
+### 决策
+
+- 正式投递除 Entry 覆盖门外，必须要求确认链 `COMPLETE`、无首个断点、位置 1–6 唯一且全部 `PASS`，每步都有 Evidence。
+- Entry 可用但确认链有效且不完整时固定为 `NO_ENTRY / SHADOW_ONLY / CONFIRMATION_CHAIN_INCOMPLETE`；完整链但策略为 `NO_TRADE` 时仍为 shadow。
+- 矛盾链状态、错误断点、重复/缺失位置和 PASS 无 Evidence 显式失败。非 `NO_TRADE` 结构仍必须有带 Evidence 的客观失效条件。
+- `App.Submit` 和 Discord worker 复用同一确定性安全门。模型不能修改路由或用叙事补齐确认层。
+- 本切片不实现完整 Entry。日线达到 50 根后再冻结延伸/回踩、客观失效位与盈亏比；Foreign Flow 保持独立 `NO-GO`。全局规则提升为 `global-analysis/1.7.0`。
+
+### 影响
+
+- 未来单个 Entry 组件可用不会意外开启正式投递，当前第 4 层 Foreign Flow `UNAVAILABLE` 会继续阻止确认链完成。
+- 现有完整正式 fixture 仍验证成功路径；真实降级报告继续是 `OBSERVE/WAIT + NO_TRADE + SHADOW_ONLY`。
+- 真实 Bundle→AI→Discord 仍需后续任务校验模型报告与权威 Bundle 一致，不能仅信任报告自报的确认链。
